@@ -112,5 +112,22 @@ class AlertRecord(Base):
     message = Column(Text, default="")
     is_acknowledged = Column(Boolean, default=False)  # 是否已确认/处理
     triggered_at = Column(DateTime, server_default=func.now())
-
     device = relationship("Device", back_populates="alert_records")
+
+
+# ============== UAV (无人机) 任务指控 ==============
+
+
+class UAVMission(Base):
+    __tablename__ = "uav_missions"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    device_id = Column(String(50), ForeignKey("devices.device_id"), nullable=False)
+    mission_name = Column(String(100), default="巡检任务")
+    waypoints = Column(Text, default="[]")  # JSON array of coords
+    status = Column(
+        String(20), default="pending"
+    )  # pending / executing / completed / aborted
+    created_at = Column(DateTime, server_default=func.now())
+
+    device = relationship("Device")

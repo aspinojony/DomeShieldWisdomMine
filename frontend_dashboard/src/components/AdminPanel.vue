@@ -15,6 +15,9 @@
         <router-link to="/admin/records" class="nav-item">
           <span class="icon">🚨</span> 告警事件
         </router-link>
+        <router-link to="/admin/uav" class="nav-item">
+          <span class="icon">🛰️</span> UAV指控集群
+        </router-link>
         <router-link to="/admin/users" class="nav-item" v-if="authState.isAdmin">
           <span class="icon">👥</span> 用户管理
         </router-link>

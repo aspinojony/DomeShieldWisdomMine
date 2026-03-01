@@ -12,7 +12,15 @@ from typing import Optional, List
 from datetime import timedelta, datetime
 
 from database import engine, get_db, Base
-from models import User, Device, DeviceType, AlertRule, AlertRecord, RoleEnum
+from models import (
+    User,
+    Device,
+    DeviceType,
+    AlertRule,
+    AlertRecord,
+    RoleEnum,
+    UAVMission,
+)
 from auth import (
     verify_password,
     get_password_hash,
@@ -375,7 +383,92 @@ def acknowledge_alert(
 
 
 # ==============================
-#   5. 健康检查
+#   5. UAV 空天指控集群
+# ==============================
+
+
+class UAVMissionCreate(BaseModel):
+    device_id: str
+    mission_name: str
+    waypoints: str
+
+
+class UAVMissionOut(BaseModel):
+    id: int
+    device_id: str
+    mission_name: str
+    waypoints: str
+    status: str
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+@app.get("/api/v1/uav/missions", response_model=List[UAVMissionOut], tags=["UAV指控"])
+def get_missions(device_id: Optional[str] = None, db: Session = Depends(get_db)):
+    """获取无人机任务列表"""
+    q = db.query(UAVMission)
+    if device_id:
+        q = q.filter(UAVMission.device_id == device_id)
+    return q.order_by(UAVMission.id.desc()).all()
+
+
+@app.post("/api/v1/uav/missions", response_model=UAVMissionOut, tags=["UAV指控"])
+def create_mission(
+    data: UAVMissionCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role(RoleEnum.admin, RoleEnum.engineer)),
+):
+    """下发新的无人机巡飞任务"""
+    device = (
+        db.query(Device)
+        .filter(
+            Device.device_id == data.device_id, Device.device_type == DeviceType.uav
+        )
+        .first()
+    )
+    if not device:
+        raise HTTPException(
+            status_code=404,
+            detail="未找到对应的 UAV 设备，可能该设备不存在或不是无人机",
+        )
+
+    mission = UAVMission(**data.model_dump())
+    db.add(mission)
+    db.commit()
+    db.refresh(mission)
+    return mission
+
+
+@app.post("/api/v1/uav/{device_id}/command", tags=["UAV指控"])
+def send_uav_command(
+    device_id: str,
+    command: str = Query(
+        ...,
+        description="控制指令: takeoff (起飞), rth (返航), hover (悬停), land (降落)",
+    ),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role(RoleEnum.admin, RoleEnum.engineer)),
+):
+    """直接下发 UAV 控制指令并执行"""
+    valid_commands = ["takeoff", "rth", "hover", "land"]
+    if command not in valid_commands:
+        raise HTTPException(
+            status_code=400, detail=f"无效的控制指令, 可选值: {valid_commands}"
+        )
+
+    # 模拟向边缘侧发送 MQTT 消息等...
+    return {
+        "status": "success",
+        "device_id": device_id,
+        "command": command,
+        "message": f"指令 [{command}] 成功发送到设备集群",
+    }
+
+
+# ==============================
+#   6. 健康检查
 # ==============================
 
 

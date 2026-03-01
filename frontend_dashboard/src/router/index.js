@@ -41,6 +41,11 @@ const routes = [
         component: () => import('../components/admin/AdminAlertManage.vue')
       },
       {
+        path: 'uav',
+        name: 'AdminUAV',
+        component: () => import('../components/admin/AdminUAVManage.vue')
+      },
+      {
         path: 'users',
         name: 'AdminUsers',
         component: () => import('../components/admin/AdminUserManage.vue'),
