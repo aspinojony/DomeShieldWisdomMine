@@ -67,6 +67,33 @@
       <!-- 移除原有占位遮罩，正式展示 Cesium -->
       <div id="cesiumContainer" class="cesium-placeholder"></div>
       
+      <!-- 3D 实体点击弹窗 -->
+      <div 
+        v-if="selectedSensor" 
+        class="sensor-popup glass-card"
+        :style="{ left: popupPosition.x + 'px', top: popupPosition.y + 'px' }"
+      >
+        <div class="popup-header">
+          <h4>📡 {{ selectedSensor.device_id }}</h4>
+          <button class="close-btn" @click="closePopup">×</button>
+        </div>
+        <div class="popup-body">
+          <p><strong>型号:</strong> {{ formatType(selectedSensor.device_type) }}</p>
+          <p><strong>状态:</strong> 
+            <span :class="isAlert(selectedSensor) ? 'danger-text' : 'safe-text'">
+              {{ isAlert(selectedSensor) ? '告警中' : '运行正常' }}
+            </span>
+          </p>
+          <div class="popup-data">
+            <p v-if="selectedSensor.crack_width_mm !== undefined">裂缝宽度: <span>{{ selectedSensor.crack_width_mm }} mm</span></p>
+            <p v-if="selectedSensor.energy_level !== undefined">微震能量: <span>{{ selectedSensor.energy_level }} J</span></p>
+            <p v-if="selectedSensor.settlement_mm !== undefined">沉降量: <span>{{ selectedSensor.settlement_mm }} mm</span></p>
+            <p v-if="selectedSensor.pressure_kpa !== undefined">孔隙水压力: <span>{{ selectedSensor.pressure_kpa }} kPa</span></p>
+          </div>
+          <button class="btn btn-detail" @click="viewDetailAction(selectedSensor)">🔍 查看分析图谱</button>
+        </div>
+      </div>
+      
       <!-- 悬浮状态栏 -->
       <div class="status-overlay">
         <span class="status-badge"><i class="dot bg-green"></i> 注册设备: {{ sysStats.deviceCount }} 台</span>
@@ -270,6 +297,20 @@ const renderRadarChart = () => {
   chartRadarInstance.setOption(option);
 }
 
+// 三维标签弹窗状态
+const selectedSensor = ref(null)
+const popupPosition = ref({ x: -1000, y: -1000 })
+let selectedEntity = null
+
+const closePopup = () => {
+  selectedSensor.value = null
+  selectedEntity = null
+}
+
+const viewDetailAction = (sensor) => {
+  switchTab(sensor.device_type === 'crack_meter' ? 'crack' : 'seismic')
+}
+
 // 工具：警报阈值判断
 const isAlert = (s) => {
   if (s.device_type === 'crack_meter' && s.crack_width_mm > 10) return true;
@@ -438,6 +479,54 @@ const initCesium = () => {
     
     entityCollection[s.device_id] = entity;
   });
+
+  // ========== 加载 3D 资产 (以加载示例 3D Tiles 为例) ==========
+  try {
+    Cesium.createOsmBuildingsAsync().then(buildings => {
+      viewer.scene.primitives.add(buildings);
+    });
+    // 真实项目中这里将加载无人机切片：
+    // const tileset = await Cesium.Cesium3DTileset.fromUrl('http://your-server/3dtiles/tileset.json');
+    // viewer.scene.primitives.add(tileset);
+  } catch(e) { console.warn("3D Tiles 加载跳过", e); }
+
+  // ========== 屏幕点击与数据解算 ==========
+  const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+  handler.setInputAction((click) => {
+    // 拾取被点击的 3D 对象
+    const pickedObject = viewer.scene.pick(click.position);
+    if (Cesium.defined(pickedObject) && Cesium.defined(pickedObject.id)) {
+      const entityId = pickedObject.id.id; // 获取我们设置的 device_id
+      const sensor = sensors.value.find(s => s.device_id === entityId);
+      if (sensor) {
+        selectedSensor.value = sensor;
+        selectedEntity = pickedObject.id;
+        // 缩放视角靠近它
+        viewer.camera.flyTo({
+          destination: Cesium.Cartesian3.fromDegrees(sensor.longitude || 109.840, sensor.latitude || 39.635, 1500),
+          duration: 1.5
+        });
+      }
+    } else {
+      // 点击空白处关闭
+      closePopup();
+    }
+  }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+  // ========== 帧前渲染监听：动态更新弹窗在屏幕的像素坐标 ==========
+  viewer.scene.preRender.addEventListener(() => {
+    if (selectedSensor.value && selectedEntity && selectedEntity.position) {
+      const positionCartesian3 = selectedEntity.position.getValue(viewer.clock.currentTime);
+      if (positionCartesian3) {
+        const winPos = Cesium.SceneTransforms.wgs84ToWindowCoordinates(viewer.scene, positionCartesian3);
+        if (winPos) {
+          // 向上偏移，不遮挡指示针
+          popupPosition.value = { x: winPos.x + 15, y: winPos.y - 120 };
+        }
+      }
+    }
+  });
+
 }
 
 // 监听数据异动，动态改变 3D 地图上的针脚颜色
@@ -702,11 +791,60 @@ onUnmounted(() => {
 }
 
 .cesium-placeholder {
-  width: 100%; height: 100%;
   position: absolute;
-  top: 0; left: 0;
-  background: #000;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: url('https://cesium.com/images/default-image.jpg') center/cover;
 }
+
+/* --- 三维标牌弹窗 --- */
+.sensor-popup {
+  position: absolute;
+  width: 250px;
+  z-index: 100;
+  pointer-events: auto;
+  transform: translateY(-50%);
+  padding: 12px;
+  background: rgba(10, 25, 47, 0.85); /* 继承玻璃态 */
+}
+
+.popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px dashed rgba(0, 240, 255, 0.3);
+  padding-bottom: 8px;
+  margin-bottom: 5px;
+}
+
+.popup-header h4 { margin: 0; color: #00f0ff; font-family: 'Orbitron', sans-serif;}
+.popup-header .close-btn { background: none; border: none; font-size: 1.2rem; color: #8892b0; cursor: pointer; }
+.popup-header .close-btn:hover { color: #fff; }
+
+.popup-body p { margin: 5px 0; font-size: 0.85rem; color: #ccd6f6; }
+.safe-text { color: #00ff88; font-weight: bold; }
+
+.popup-data {
+  background: rgba(0,0,0,0.3);
+  padding: 8px;
+  border-radius: 4px;
+  margin: 10px 0;
+  border-left: 2px solid #00f0ff;
+}
+.popup-data p { margin: 3px 0; display: flex; justify-content: space-between; font-size: 0.8rem;}
+.popup-data span { font-weight: bold; color: #fff; }
+
+.btn-detail {
+  width: 100%;
+  padding: 6px;
+  background: rgba(0, 240, 255, 0.15);
+  border: 1px solid rgba(0, 240, 255, 0.4);
+  color: #00f0ff;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.85rem;
+}
+.btn-detail:hover { background: rgba(0, 240, 255, 0.3); box-shadow: 0 0 10px rgba(0, 240, 255, 0.2); }
 
 /* 给整个主要大屏地图增加一个极隐微的蓝色发光覆盖层，呈现“全息科技感” */
 .main-view::before {
