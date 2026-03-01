@@ -112,25 +112,32 @@
 
       <!-- Tab 栏 -->
       <div class="tab-bar">
-        <button class="tab-btn" :class="{ active: activeTab === 'ai' }" @click="switchTab('ai')">🧠 AI研判</button>
+        <button class="tab-btn" :class="{ active: activeTab === 'ai' }" @click="switchTab('ai')">
+          🧠 AI研判 
+          <span v-if="(aiAlerts.length + alertRecords.length) > 0" class="tab-badge pulse-anim">{{ aiAlerts.length + alertRecords.length }}</span>
+        </button>
         <button class="tab-btn" :class="{ active: activeTab === 'seismic' }" @click="switchTab('seismic')">📈 微震</button>
         <button class="tab-btn" :class="{ active: activeTab === 'crack' }" @click="switchTab('crack')">📉 裂缝</button>
       </div>
 
       <!-- Tab 内容区 -->
       <div class="tab-content">
+        <transition name="fade-slide" mode="out-in">
         <!-- AI 研判 Tab -->
-        <div v-show="activeTab === 'ai'" class="tab-pane">
+        <div v-if="activeTab === 'ai'" class="tab-pane" key="ai-tab">
           <h3 class="ai-title">🧠 智能研判预警中心</h3>
-          <div class="ai-alerts-list">
+          <div class="ai-alerts-list custom-scrollbar">
             <div v-if="aiAlerts.length === 0" class="loading-state">AI 引擎监控中，暂无异常...</div>
             <div 
               v-for="(alert, index) in aiAlerts" 
-              :key="index"
+              :key="'ai-'+index"
               class="ai-alert-item"
               :class="{'level-3': alert.level.includes('三级'), 'level-2': alert.level.includes('二级')}"
             >
-              <div class="alert-time">{{ alert.time.split(' ')[1] }} | {{ alert.device }}</div>
+              <div class="alert-header">
+                <span class="alert-time">{{ alert.time.split(' ')[1] }}</span>
+                <span class="alert-device">[{{ alert.device }}]</span>
+              </div>
               <div class="alert-info">
                 <span>塌方概率: <strong :class="{'danger-text': alert.probability > 80}">{{ alert.probability }}%</strong></span>
                 <span class="level-badge">{{ alert.level }}</span>
@@ -140,34 +147,39 @@
           </div>
           
           <h3 class="ai-title" style="margin-top: 15px;">🚨 业务阈值预警记录</h3>
-          <div class="ai-alerts-list">
+          <div class="ai-alerts-list custom-scrollbar">
             <div v-if="alertRecords.length === 0" class="loading-state">当前无业务阈值告警...</div>
             <div 
               v-for="record in alertRecords" 
-              :key="record.id"
+              :key="'biz-'+record.id"
               class="ai-alert-item"
-              :class="{'level-3': record.alert_level === 'critical', 'level-2': record.alert_level === 'warning'}"
+              :class="{'level-3': record.alert_level === 'critical', 'level-2': record.alert_level === 'warning', 'is-unacked': !record.is_acknowledged}"
             >
-              <div class="alert-time">{{ record.triggered_at ? record.triggered_at.split(' ')[1] : '' }} | {{ record.device_id }}</div>
+              <div class="alert-header">
+                <span class="alert-time">{{ record.triggered_at ? record.triggered_at.split(' ')[1] : '' }}</span>
+                <span class="alert-device">[{{ record.device_id }}]</span>
+              </div>
               <div class="alert-info">
-                <span>{{ record.metric_field }}: <strong>{{ parseFloat(record.metric_value).toFixed(2) }}</strong> (阈值: {{ record.threshold }})</span>
-                <span class="level-badge" v-if="!record.is_acknowledged" style="background: rgba(255,0,0,0.5); border-color: red;">未处理</span>
+                <span>{{ record.metric_field }} = <strong>{{ parseFloat(record.metric_value).toFixed(2) }}</strong> (阈值: {{ record.threshold }})</span>
+                <span class="level-badge unacked-badge" v-if="!record.is_acknowledged">未处理</span>
+                <span class="level-badge acked-badge" v-else>已处理</span>
               </div>
             </div>
           </div>
         </div>
 
         <!-- 微震 Tab -->
-        <div v-show="activeTab === 'seismic'" class="tab-pane">
+        <div v-else-if="activeTab === 'seismic'" class="tab-pane" key="seismic-tab">
           <h3>微震仪异常振幅追踪 [SENSOR-MV-101]</h3>
           <div ref="chartSeismic" class="echart-box"></div>
         </div>
 
         <!-- 裂缝 Tab -->
-        <div v-show="activeTab === 'crack'" class="tab-pane">
+        <div v-else-if="activeTab === 'crack'" class="tab-pane" key="crack-tab">
           <h3>边坡裂缝扩展演化 [SENSOR-DE-001]</h3>
           <div ref="chartCrack" class="echart-box"></div>
         </div>
+        </transition>
       </div>
     </aside>
   </div>
@@ -830,6 +842,75 @@ onUnmounted(() => {
   padding: 2px 6px;
   border-radius: 4px;
   font-weight: bold;
+}
+
+.unacked-badge {
+  background: rgba(255,0,0,0.5);
+  border: 1px solid #ff003c;
+  color: #fff;
+  animation: bg-pulse 1.5s infinite;
+}
+
+.acked-badge {
+  background: rgba(0, 255, 136, 0.2);
+  border: 1px solid rgba(0, 255, 136, 0.5);
+  color: #00ff88;
+}
+
+.alert-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  border-bottom: 1px dashed rgba(255,255,255,0.1);
+  padding-bottom: 4px;
+}
+.alert-device {
+  color: #00f0ff;
+  font-family: monospace;
+}
+
+@keyframes bg-pulse {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.5); box-shadow: 0 0 10px rgba(255, 0, 60, 0.5); }
+}
+
+.pulse-anim {
+  animation: bg-pulse 1s infinite alternate;
+}
+
+/* 过渡动画 */
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: all 0.3s ease;
+}
+.fade-slide-enter-from {
+  opacity: 0;
+  transform: translateY(10px);
+}
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0, 240, 255, 0.3);
+  border-radius: 2px;
+}
+
+.tab-badge {
+  background-color: #ff003c;
+  color: white;
+  border-radius: 10px;
+  padding: 1px 6px;
+  font-size: 0.75rem;
+  margin-left: 6px;
+  box-shadow: 0 0 5px rgba(255, 0, 60, 0.5);
 }
 
 .danger-text { color: #ff003c; }
