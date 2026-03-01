@@ -1,0 +1,8 @@
+path: /Users/a0000/天空一体矿山系统/ai_core/datasets/crack_data
+train: images/train # 训练集路径 (相对于 path)
+val: images/train # 测试阶段暂时代替验证集
+test: images/train
+
+# 类别信息
+names:
+  0: crack #  0表示裂缝

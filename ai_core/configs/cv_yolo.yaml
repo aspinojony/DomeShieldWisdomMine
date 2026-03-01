@@ -1,0 +1,17 @@
+# YOLOv8 训练配置
+experiment_name: "YOLOv8_Crack_Detection_V1"
+model:
+  type: "yolov8n.pt" # 选用轻量级 YOLOv8 nano 版本，为了适配无人机边缘算力
+  num_classes: 1 # 只需要识别"裂缝 (crack)"一种类别即可
+
+training:
+  epochs: 100
+  batch_size: 16
+  imgsz: 640 # 无人机照片压缩尺寸
+  device: "mps" # 加速设备 mps 或者 cuda 或者 cpu
+  workers: 4
+  project: "./runs/detect" # ultralytics 的默认输出路径
+  name: "crack_monitor"
+
+dataset:
+  yaml_path: "./datasets/crack_data.yaml"
