@@ -575,13 +575,10 @@ let viewer = null
 let entityCollection = {}
 
 const initCesium = () => {
-  // ====== OpenStreetMap 底图 (完全免费，无需 Key，无限流) ======
-  const osmImagery = new Cesium.OpenStreetMapImageryProvider({
-    url: 'https://tile.openstreetmap.org/'
-  });
+  // 设置 Cesium Ion Access Token (用户已注册)
+  Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIxMTExYjQxMy0zZTA1LTRhZTctOTE4Yy03ZTgzZTc1ODA1YmYiLCJpZCI6Mzk2NTMwLCJpYXQiOjE3NzI0MzYwNjN9.VI6BBt8gZF0fXaqdw_KPYwumT-hutwSF4GT3czmam-4';
 
   viewer = new Cesium.Viewer('cesiumContainer', {
-    imageryProvider: osmImagery,
     animation: false,
     timeline: false,
     navigationHelpButton: false,
@@ -591,6 +588,11 @@ const initCesium = () => {
     homeButton: false,
     sceneModePicker: false
   });
+
+  // 加载 Cesium Ion 世界地形 (只会按需加载矿区附近的高程数据)
+  Cesium.createWorldTerrainAsync().then(terrain => {
+    viewer.terrainProvider = terrain;
+  }).catch(() => {});
   
   // 隐藏底部的版权信息
   viewer._cesiumWidget._creditContainer.style.display = 'none';
