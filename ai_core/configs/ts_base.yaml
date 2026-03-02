@@ -1,26 +1,26 @@
 # 模型通用配置
 experiment_name: "MultiSensor_LSTM_V1"
-device: "cuda" # 或者 "mps" 对于 Mac, "cpu"
+device: "mps" # Mac Silicon 加速
 
 dataset:
-  # 历史数据窗口大小，例如过去 120 个时间步 (如果 1分钟1个，则为 2 小时)
-  seq_length: 120
+  # 历史数据窗口大小，例如过去 60 个时间步 (如果 1分钟1个，则为 1 小时)
+  seq_len: 60
   # 预测未来多少步
-  pred_len: 12
-  # 我们输入的传感器特征数量 (裂缝、位移、水压、微震能量、倾角 等)
-  input_dim: 8
-  # 模拟数据存放路径（后续替换为从 InfluxDB 拉取的 CSV）
-  csv_path: "./data/mock_sensor_data.csv"
+  pred_len: 6
+  # 输入传感器特征数量: crack_width, seismic_energy, angle_x, settlement_mm
+  input_dim: 4
+  # 合成训练数据存放路径
+  csv_path: "./data/synthetic_sensor_data.csv"
   batch_size: 64
 
 model:
-  hidden_dim: 128
+  hidden_dim: 64
   num_layers: 2
   dropout: 0.2
 
 training:
-  epochs: 100
+  epochs: 50
   learning_rate: 0.001
   weight_decay: 0.0001
-  early_stopping_patience: 10
+  early_stopping_patience: 8
   save_dir: "./checkpoints/"

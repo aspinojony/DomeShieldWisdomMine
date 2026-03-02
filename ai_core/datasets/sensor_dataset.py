@@ -11,33 +11,41 @@ class TimeSeriesSensorDataset(Dataset):
     """
 
     def __init__(
-        self, df: pd.DataFrame, seq_len: int, pred_len: int, is_train: bool = True
+        self,
+        df: pd.DataFrame,
+        seq_len: int,
+        pred_len: int,
+        is_train: bool = True,
+        scaler=None,
     ):
         """
         :param df: Pandas DataFrame，包含时间戳和各个传感器的值
         :param seq_len: 输入序列长度 (Look-back window)
         :param pred_len: 预测未来序列长度或者分类 (Forecast window/Label)
         :param is_train: 是否为训练集（决定是否 fit scaler）
+        :param scaler: 外部传入的 StandardScaler (验证集需要使用训练集的 scaler)
         """
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.is_train = is_train
 
         # 假设 df 中包含 'timestamp' 和 'label' 列，其余均为特征
-        # Label 示例：未来一定时间内发生塌方的概率，或者预测未来的位移量
-
-        # 为了演示，我们先构建数据阵列
-        self.features = df.drop(columns=["timestamp", "label"]).values
+        # 明确指定我们的4维传感器特征
+        feature_cols = [c for c in df.columns if c not in ["timestamp", "label"]]
+        self.features = df[feature_cols].values
         self.labels = df["label"].values  # 比如分类: 0-安全, 1-危险
 
         # 工业级标准：标准化
-        self.scaler = StandardScaler()
         if self.is_train:
+            self.scaler = StandardScaler()
             self.features = self.scaler.fit_transform(self.features)
         else:
-            self.features = self.scaler.transform(
-                self.features
-            )  # 外部注入拟合好的scaler更严谨
+            self.scaler = scaler
+            if self.scaler is None:
+                raise ValueError(
+                    "Validation dataset requires a fitted scaler from the training dataset."
+                )
+            self.features = self.scaler.transform(self.features)
 
         # 计算切片索引
         self.indices = []
@@ -85,7 +93,9 @@ def build_dataloaders(csv_path: str, seq_len: int, pred_len: int, batch_size: in
 
     train_ds = TimeSeriesSensorDataset(train_df, seq_len, pred_len, is_train=True)
     # 真实场景必须传递 train_ds.scaler 给 val_ds 以防止数据穿越
-    val_ds = TimeSeriesSensorDataset(val_df, seq_len, pred_len, is_train=False)
+    val_ds = TimeSeriesSensorDataset(
+        val_df, seq_len, pred_len, is_train=False, scaler=train_ds.scaler
+    )
 
     train_loader = DataLoader(
         train_ds, batch_size=batch_size, shuffle=True, drop_last=True

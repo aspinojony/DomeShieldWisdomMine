@@ -4,7 +4,6 @@ import argparse
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.tensorboard import SummaryWriter
 
 # Import created modules
 from datasets.sensor_dataset import build_dataloaders
@@ -52,8 +51,6 @@ def train(config_path):
         weight_decay=cfg["training"]["weight_decay"],
     )
 
-    writer = SummaryWriter(log_dir=f"./logs/{cfg['experiment_name']}")
-
     # 5. Core Epoch 循环 (反向传播与学习机制)
     best_val_loss = float("inf")
     early_stop_cnt = 0
@@ -92,11 +89,6 @@ def train(config_path):
 
         avg_val_loss = total_val_loss / len(val_loader)
 
-        # 写入 Tensorboard
-        writer.add_scalars(
-            "Loss", {"Train": avg_train_loss, "Val": avg_val_loss}, epoch
-        )
-
         print(
             f"Epoch [{epoch}/{epochs}] | Train Loss: {avg_train_loss:.4f} | Val Loss: {avg_val_loss:.4f}"
         )
@@ -120,7 +112,6 @@ def train(config_path):
             )
             break
 
-    writer.close()
     print("✅ 全局时序训练任务框架执行完毕！")
 
 
