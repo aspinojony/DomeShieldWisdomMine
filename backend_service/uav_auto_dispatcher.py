@@ -58,7 +58,9 @@ class UAVDispatcherEngine:
             {"lat": target_lat, "lng": target_lng - radius, "alt": base_alt + 20},
         ]
 
-    async def execute_flight_mission(self, mission_id: int):
+    async def execute_flight_mission(
+        self, mission_id: int, target_alert_id: int = None
+    ):
         """
         后台监视无人机从起飞、巡检到返航归巢 (模拟 MSDK 或互联回调机制)
         """
@@ -92,6 +94,20 @@ class UAVDispatcherEngine:
             mission.status = "completed"
             if uav:
                 uav.status = "online"  # 释放无人机，可接受下一次调度
+
+            # 空地协同最终闭环：系统消警
+            if target_alert_id:
+                alert = (
+                    db.query(AlertRecord)
+                    .filter(AlertRecord.id == target_alert_id)
+                    .first()
+                )
+                if alert:
+                    alert.is_acknowledged = True
+                    alert.message = f"✅ 已通过空地协同核实消除。执飞架次: {uav.device_id}, 任务单号: #{mission_id}"
+                    logging.info(
+                        f"✔️ 警报 #{target_alert_id} 自动消警完成，并留下不可篡改的飞行确认痕迹。"
+                    )
 
             db.commit()
             logging.info(
@@ -156,7 +172,9 @@ class UAVDispatcherEngine:
                 )
 
                 # 扔到异步循环里非阻塞执行监视
-                task = asyncio.create_task(self.execute_flight_mission(new_mission.id))
+                task = asyncio.create_task(
+                    self.execute_flight_mission(new_mission.id, alert.id)
+                )
                 self.active_tasks[new_mission.id] = task
 
         except Exception as e:
