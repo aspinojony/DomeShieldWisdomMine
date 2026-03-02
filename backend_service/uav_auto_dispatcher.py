@@ -3,25 +3,29 @@ import json
 import logging
 import random
 import time
-from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
 from database import SessionLocal
 from models import UAVMission, Device, AlertRecord, DeviceType
 
-# 独立运行的自动派单巡检机器人 (模拟 DJI Cloud API 闭环)
+# 工业级空地协同管控引擎核心逻辑 (UAV Swarm Orchestrator)
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - UAVDispatcher - %(levelname)s - %(message)s",
+    format="%(asctime)s - [UAV-Orchestrator] - %(levelname)s - %(message)s",
 )
 
-DATABASE_URL = "sqlite:///./mining_db.sqlite3"
 
+class UAVDispatcherEngine:
+    """
+    负责管理无人机工单生命周期：
+    1. 警报捕获 -> 2. 可用设备寻呼 -> 3. 避障航线生成 -> 4. 任务下发 -> 5. 状态机流转监测 -> 6. 任务闭环确认
+    """
 
-def check_and_dispatch():
-    db = SessionLocal()
-    try:
-        # 1. 查找未处理的最高级别预警 (此处查找 critical)
-        unacked_critical_alerts = (
+    def __init__(self):
+        self.active_tasks = {}  # 用于保存当前正在执飞中的协程任务锁
+
+    def fetch_critical_alerts(self, db: Session):
+        return (
             db.query(AlertRecord)
             .filter(
                 AlertRecord.alert_level == "critical",
@@ -30,82 +34,144 @@ def check_and_dispatch():
             .all()
         )
 
-        if not unacked_critical_alerts:
-            # logging.info("目前无三级紧急预警，无人机编队待命中...")
-            return
-
-        # 2. 查找全矿目前处于挂载状态且空闲的无人机
-        idle_uavs = (
+    def find_available_drone(self, db: Session):
+        # 查询状态为 "online" 的空闲无人机
+        drones = (
             db.query(Device)
             .filter(Device.device_type == DeviceType.uav, Device.status == "online")
             .all()
         )
+        return random.choice(drones) if drones else None
 
-        if not idle_uavs:
-            logging.warning("出现高危警报！但当前无空闲的 UAV 机组可供调遣！")
-            return
+    def generate_safe_waypoints(self, target_lat, target_lng):
+        """
+        三维避障航线生成模拟 (真实场景接入 DEM/DSM 标高数据与 A* / RRT 算法)
+        """
+        # 以报警点为圆心，生成 4 个环绕查证航点
+        radius = 0.002  # 大约 200 米半径
+        base_alt = 120  # 安全起降限高 120m
 
-        for alert in unacked_critical_alerts:
-            # 判断是否已经为这个告警设备地址派发过任务，防止重复派发
-            recent_mission = (
-                db.query(UAVMission)
-                .filter(
-                    UAVMission.mission_name.like(f"Auto-Inspect: {alert.device_id}%"),
-                    UAVMission.status.in_(["pending", "executing"]),
+        return [
+            {"lat": target_lat + radius, "lng": target_lng, "alt": base_alt},
+            {"lat": target_lat, "lng": target_lng + radius, "alt": base_alt - 10},
+            {"lat": target_lat - radius, "lng": target_lng, "alt": base_alt},
+            {"lat": target_lat, "lng": target_lng - radius, "alt": base_alt + 20},
+        ]
+
+    async def execute_flight_mission(self, mission_id: int):
+        """
+        后台监视无人机从起飞、巡检到返航归巢 (模拟 MSDK 或互联回调机制)
+        """
+        db = SessionLocal()
+        try:
+            mission = db.query(UAVMission).filter(UAVMission.id == mission_id).first()
+            if not mission:
+                return
+
+            uav = db.query(Device).filter(Device.device_id == mission.device_id).first()
+            if uav:
+                uav.status = "executing"  # 锁定占用无人机
+                db.commit()
+
+            logging.info(
+                f"🚁 [{uav.device_id}] 引擎点火！已开始执行工单 (#{mission_id}) -> {mission.mission_name}"
+            )
+
+            # 模拟飞完了各个航点并拍照取证 (延时代表了真实的飞行周期)
+            waypoints = json.loads(mission.waypoints)
+            for idx, wp in enumerate(waypoints):
+                await asyncio.sleep(8)  # 模拟飞向该锚点所需时间...
+                logging.info(
+                    f"📷 [{uav.device_id}] 已抵达 {idx+1}/{len(waypoints)} 号查证锚点 (Lat: {wp['lat']:.4f}), 执行拍摄与建模..."
                 )
-                .first()
-            )
 
-            if recent_mission:
-                continue
+            # 返航降落
+            await asyncio.sleep(5)
 
-            # 3. 生成空地协同任务，随机派出一架无人机
-            uav = random.choice(idle_uavs)
+            # 任务闭环更新状态
+            mission.status = "completed"
+            if uav:
+                uav.status = "online"  # 释放无人机，可接受下一次调度
 
-            # 使用简单的虚拟偏移算法，为待飞设备中心生成四个抵近巡查航点
-            # 真实项目中需要接入 大疆司空2 (DJI FlightHub 2) API 或 MSDK
-            mock_waypoints = [
-                {
-                    "lat": 39.635 + random.uniform(-0.005, 0.005),
-                    "lng": 109.840 + random.uniform(-0.005, 0.005),
-                    "alt": 150,
-                },
-                {
-                    "lat": 39.636 + random.uniform(-0.005, 0.005),
-                    "lng": 109.841 + random.uniform(-0.005, 0.005),
-                    "alt": 120,
-                },
-            ]
-
-            new_mission = UAVMission(
-                device_id=uav.device_id,
-                mission_name=f"Auto-Inspect: {alert.device_id} 区块异常",
-                waypoints=json.dumps(mock_waypoints),
-                status="pending",
-            )
-            db.add(new_mission)
             db.commit()
-
             logging.info(
-                f"🚨 [闭环响应] 监测到 {alert.device_id} ({alert.metric_field}: {alert.metric_value}) 高危预警！"
-            )
-            logging.info(
-                f"🚁 已自动为您生成无人机查证工单，指派机组: {uav.device_id}。航线端点已下发至 MSDK / 云台。"
+                f"✅ [{uav.device_id}] 任务 (#{mission_id}) 执行完毕，无人机已安全返航入巢，状态解除锁定！"
             )
 
-    except Exception as e:
-        logging.error(f"UAV Dispatcher Error: {e}")
-    finally:
-        db.close()
+        except Exception as e:
+            logging.error(f"Flight Mission Error on MT-Task {mission_id}: {e}")
+        finally:
+            db.close()
+            # 释放活跃任务锁
+            self.active_tasks.pop(mission_id, None)
+
+    def trigger_dispatch_flow(self):
+        db = SessionLocal()
+        try:
+            alerts = self.fetch_critical_alerts(db)
+            if not alerts:
+                return
+
+            for alert in alerts:
+                # 去重：如果这个隐患区域已经在派过或者刚刚派过无人机去看了，就跳过
+                recent_mission = (
+                    db.query(UAVMission)
+                    .filter(
+                        UAVMission.mission_name.like(f"%{alert.device_id}%"),
+                        UAVMission.status.in_(["pending", "executing"]),
+                    )
+                    .first()
+                )
+
+                if recent_mission:
+                    continue
+
+                uav = self.find_available_drone(db)
+                if not uav:
+                    logging.warning(
+                        "⚠️ 高危警报待处理队列拥堵，目前已无可用/满电的无人机编队！"
+                    )
+                    break
+
+                # 获取报警设备位置 (Mock 位置系)
+                target_lat, target_lng = 39.635, 109.840
+                mock_waypoints = self.generate_safe_waypoints(target_lat, target_lng)
+
+                # 创建调度工单
+                new_mission = UAVMission(
+                    device_id=uav.device_id,
+                    mission_name=f"自动紧急查证: {alert.device_id} 区块异常",
+                    waypoints=json.dumps(mock_waypoints),
+                    status="executing",
+                )
+                db.add(new_mission)
+                db.commit()
+                db.refresh(new_mission)
+
+                logging.critical(
+                    f"🚨 [警报拦截成功] 捕获 {alert.device_id} ({alert.metric_field}: {alert.metric_value}) 高危熔断！"
+                )
+                logging.warning(
+                    f"🗺️ 智能航线规划成功，共 {len(mock_waypoints)} 个锚点，已下发指控命令。"
+                )
+
+                # 扔到异步循环里非阻塞执行监视
+                task = asyncio.create_task(self.execute_flight_mission(new_mission.id))
+                self.active_tasks[new_mission.id] = task
+
+        except Exception as e:
+            logging.error(f"调度引擎捕获到异常: {e}")
+        finally:
+            db.close()
 
 
 async def main():
-    logging.info("=================================")
-    logging.info(" 🛰️ 无人机空地协同调度中枢启动")
-    logging.info("=================================")
+    engine = UAVDispatcherEngine()
+    logging.info("⚡ IOT-UAV 神经中枢网络启动 (常驻巡查)")
+
     while True:
-        check_and_dispatch()
-        await asyncio.sleep(10)  # 每 10 秒扫描一次红框告警
+        engine.trigger_dispatch_flow()
+        await asyncio.sleep(5)  # 5秒一次的心跳扫描
 
 
 if __name__ == "__main__":
