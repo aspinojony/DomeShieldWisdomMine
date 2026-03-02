@@ -182,6 +182,20 @@
     <section class="main-view tech-panel">
       <!-- 移除原有占位遮罩，正式展示 Cesium -->
       <div id="cesiumContainer" class="cesium-placeholder"></div>
+
+      <!-- 视围交互：底部影视级导播台 -->
+      <div class="cinematic-pov-controls glass-card">
+        <button class="pov-btn" @click="flyToGlobal">🌍 全局鸟瞰</button>
+        <button class="pov-btn" @click="flyToUAV">🚁 UAV 跟飞</button>
+        <button class="pov-btn danger-btn" @click="flyToDanger">🚨 高危抵近</button>
+      </div>
+
+      <!-- 视围交互：右下角环境干涉面板 -->
+      <div class="env-control-panel glass-card">
+        <h4>环境干涉台</h4>
+        <label><input type="checkbox" v-model="envSettings.shadows" @change="toggleShadows"> 🌞 实时光照与阴影</label>
+        <label><input type="checkbox" v-model="envSettings.fence" @change="toggleFence"> 🚧 电子红带警戒图层</label>
+      </div>
       
       <!-- 3D 实体点击弹窗 -->
       <div 
@@ -274,8 +288,9 @@
             <div 
               v-for="(alert, index) in aiAlerts" 
               :key="'ai-'+index"
-              class="ai-alert-item"
+              class="ai-alert-item click-pointer"
               :class="{'level-3': alert.level.includes('三级'), 'level-2': alert.level.includes('二级')}"
+              @click="flyToSensor(alert.device)"
             >
               <div class="alert-header">
                 <span class="alert-time">{{ alert.time.split(' ')[1] }}</span>
@@ -295,8 +310,9 @@
             <div 
               v-for="record in alertRecords" 
               :key="'biz-'+record.id"
-              class="ai-alert-item"
+              class="ai-alert-item click-pointer"
               :class="{'level-3': record.alert_level === 'critical', 'level-2': record.alert_level === 'warning', 'is-unacked': !record.is_acknowledged}"
+              @click="flyToSensor(record.device_id)"
             >
               <div class="alert-header">
                 <span class="alert-time">{{ record.triggered_at ? record.triggered_at.split(' ')[1] : '' }}</span>
@@ -1376,4 +1392,65 @@ onUnmounted(() => {
   transition: width 0.5s linear;
 }
 
+
+/* ========= 新增交互动作 CSS ========= */
+.cinematic-pov-controls {
+  position: absolute;
+  bottom: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 15px;
+  padding: 10px 20px;
+  z-index: 10;
+  border-top: 2px solid rgba(0, 240, 255, 0.4);
+}
+.pov-btn {
+  background: rgba(0, 30, 60, 0.7);
+  border: 1px solid #00f0ff;
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.3s;
+}
+.pov-btn:hover {
+  background: rgba(0, 240, 255, 0.3);
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+}
+.pov-btn.danger-btn {
+  border-color: #ff003c;
+  color: #ff9999;
+}
+.pov-btn.danger-btn:hover {
+  background: rgba(255, 0, 60, 0.3);
+  box-shadow: 0 0 10px rgba(255, 0, 60, 0.5);
+}
+
+.env-control-panel {
+  position: absolute;
+  bottom: 110px;
+  right: 25px;
+  padding: 15px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 0.9rem;
+}
+.env-control-panel h4 {
+  margin: 0 0 5px 0;
+  color: #00f0ff;
+  border-bottom: 1px dashed rgba(0,240,255,0.4);
+  padding-bottom: 5px;
+}
+.click-pointer {
+  cursor: pointer;
+  transition: transform 0.2s, border-left 0.2s;
+}
+.click-pointer:hover {
+  transform: translateX(-5px);
+  border-left: 4px solid #00f0ff;
+}
 </style>
