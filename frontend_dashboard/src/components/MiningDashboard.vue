@@ -812,6 +812,97 @@ onUnmounted(() => {
     viewer.destroy()
   }
 })
+
+// ============= 三维深度交互逻辑 (Cinematic Interactions) =============
+
+const envSettings = ref({
+  shadows: false,
+  fence: true
+});
+
+// 飞到全局视角
+const flyToGlobal = () => {
+  if (!viewer) return;
+  viewer.camera.flyTo({
+    destination: Cesium.Cartesian3.fromDegrees(109.84, 39.63, 2000),
+    orientation: {
+      heading: 0,
+      pitch: Cesium.Math.toRadians(-45.0),
+    },
+    duration: 2.0
+  });
+};
+
+// 飞到无人机 FPV 追踪视角
+const flyToUAV = () => {
+  if (!viewer) return;
+  viewer.camera.flyTo({
+    destination: Cesium.Cartesian3.fromDegrees(109.845, 39.635, 120),
+    orientation: {
+      heading: Cesium.Math.toRadians(45.0),
+      pitch: Cesium.Math.toRadians(-20.0),
+    },
+    duration: 2.5
+  });
+};
+
+// 飞到最高危沉降区
+const flyToDanger = () => {
+  if (!viewer) return;
+  viewer.camera.flyTo({
+    destination: Cesium.Cartesian3.fromDegrees(109.838, 39.628, 50),
+    orientation: {
+      heading: Cesium.Math.toRadians(-30.0),
+      pitch: Cesium.Math.toRadians(-15.0),
+    },
+    duration: 2.0
+  });
+};
+
+// 数据反查穿透联动
+const flyToSensor = (deviceId) => {
+  if (!viewer || !entityCollection[deviceId]) return;
+  
+  const entity = entityCollection[deviceId];
+  viewer.flyTo(entity, {
+    duration: 1.5,
+    offset: new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(-30), 80)
+  });
+  
+  // 触发红色特效反馈
+  if (entity.point) {
+    const origColor = entity.point.color.getValue();
+    const origOutline = entity.point.outlineColor.getValue();
+    entity.point.color = Cesium.Color.RED;
+    entity.point.outlineColor = Cesium.Color.YELLOW;
+    entity.point.pixelSize = 25;
+    
+    setTimeout(() => {
+      entity.point.color = origColor;
+      entity.point.outlineColor = origOutline;
+      entity.point.pixelSize = 15;
+    }, 2000);
+  }
+};
+
+// 环境控制台
+const toggleShadows = () => {
+  if (!viewer) return;
+  viewer.shadows = envSettings.value.shadows;
+  if (envSettings.value.shadows) {
+    viewer.clock.currentTime = Cesium.JulianDate.fromIso8601("2023-10-01T04:00:00Z");
+    viewer.clock.multiplier = 3600;
+    viewer.clock.shouldAnimate = true;
+  } else {
+    viewer.clock.shouldAnimate = false;
+  }
+};
+
+const toggleFence = () => {
+  // 预留：控制电子围栏图层的显隐
+};
+
+// =======================================================
 </script>
 
 <style scoped>
