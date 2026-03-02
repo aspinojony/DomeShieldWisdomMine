@@ -4,7 +4,7 @@ import logging
 import random
 import time
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from database import SessionLocal
 from models import UAVMission, Device, AlertRecord, DeviceType
 
 # 独立运行的自动派单巡检机器人 (模拟 DJI Cloud API 闭环)
@@ -15,8 +15,6 @@ logging.basicConfig(
 )
 
 DATABASE_URL = "sqlite:///./mining_db.sqlite3"
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 def check_and_dispatch():

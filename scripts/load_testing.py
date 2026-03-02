@@ -13,7 +13,7 @@ MESSAGES_PER_THREAD = TOTAL_SENSORS // THREADS
 
 
 def worker(thread_id, start_idx, num_messages):
-    client = mqtt.Client(f"LoadTester-{thread_id}")
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, f"LoadTester-{thread_id}")
     try:
         client.connect(MQTT_BROKER, MQTT_PORT, 60)
         client.loop_start()
