@@ -121,6 +121,61 @@
           </div>
         </div>
 
+        <!-- 折叠区块 5：人员空间态势 (UWB) -->
+        <div class="collapsible-section">
+          <div class="section-header" @click="toggleSection('personnel')">
+            <h2 class="glowing-text" style="font-size: 1rem;">👷‍♂️ 电子围栏与人员态势</h2>
+            <span class="collapse-icon">{{ leftSections.personnel ? '▼' : '▶' }}</span>
+          </div>
+          <div class="section-body p-10" v-show="leftSections.personnel">
+            <div class="truck-stats">
+              <div class="stat-row">
+                <span>采坑作业区</span>
+                <strong>{{ personnelStatus.pitArea }} 人</strong>
+              </div>
+              <div class="stat-row mt-10">
+                <span>排土场区</span>
+                <strong>{{ personnelStatus.dumpArea }} 人</strong>
+              </div>
+              <div class="stat-row mt-10">
+                <span>生活区</span>
+                <strong>{{ personnelStatus.livingArea }} 人</strong>
+              </div>
+            </div>
+            
+            <div class="weather-warning" v-if="personnelStatus.dangerZone > 0" style="background: rgba(255, 0, 60, 0.4); box-shadow: 0 0 15px rgba(255,0,60,0.5);">
+              🚨 警告：检测到 <strong>{{ personnelStatus.dangerZone }}</strong> 人误入“爆破红带警戒区/滑坡预警区”！
+            </div>
+          </div>
+        </div>
+
+        <!-- 折叠区块 6：通讯链路健康度 -->
+        <div class="collapsible-section">
+          <div class="section-header" @click="toggleSection('network')">
+            <h2 class="glowing-text" style="font-size: 1rem;">📶 专网链路与健康度</h2>
+            <span class="collapse-icon">{{ leftSections.network ? '▼' : '▶' }}</span>
+          </div>
+          <div class="section-body p-10" v-show="leftSections.network">
+            <div class="truck-stats">
+              <div class="stat-row">
+                <span>5G 上/下行带宽使用率</span>
+                <strong :class="{'danger-text': networkStatus.bandwidth > 90}">{{ networkStatus.bandwidth }} %</strong>
+              </div>
+              <div class="truck-progress">
+                <div class="truck-progress-fill" :style="{ width: networkStatus.bandwidth + '%', background: networkStatus.bandwidth > 90 ? 'linear-gradient(90deg, #ff9900, #ff003c)' : 'linear-gradient(90deg, #00f0ff, #00ff88)' }"></div>
+              </div>
+              <div class="stat-row mt-10">
+                <span>无人机微波图传 Ping 延迟</span>
+                <strong :class="{'danger-text': networkStatus.ping > 150}">{{ networkStatus.ping }} ms</strong>
+              </div>
+              <div class="stat-row mt-10">
+                <span>IoT 传输网关 CPU 温度</span>
+                <strong :class="{'danger-text': networkStatus.cpuTemp > 85}">{{ networkStatus.cpuTemp }} °C</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </aside>
 
     <!-- 中央核心视图与底是指控台 -->
@@ -294,7 +349,7 @@ const sysStats = ref({ deviceCount: 0, ruleCount: 0 })
 let deviceRegistry = {}
 
 const loading = ref(true)
-const leftSections = ref({ sensors: true, radar: false, weather: true, trucks: false })
+const leftSections = ref({ sensors: true, radar: false, weather: false, trucks: false, personnel: true, network: true })
 const activeTab = ref('ai')
 let pollingTimer = null
 
@@ -312,6 +367,19 @@ const truckStats = ref({
   activeExcavators: 8,
   totalExcavators: 10,
   dailyTonnage: 12500
+})
+
+const personnelStatus = ref({
+  pitArea: 104,
+  dumpArea: 25,
+  livingArea: 310,
+  dangerZone: 0
+})
+
+const networkStatus = ref({
+  bandwidth: 45.2,
+  ping: 25,
+  cpuTemp: 56.5
 })
 
 const toggleSection = (name) => {
@@ -705,9 +773,18 @@ onMounted(async () => {
     
     // 模拟气象和卡车数据的随机波动
     weatherData.value.wind = (4 + Math.random() * 2).toFixed(1)
-    if (Math.random() > 0.8) weatherData.value.rain = (weatherData.value.rain + Math.random() * 2).toFixed(1)
+    if (Math.random() > 0.8) weatherData.value.rain = (parseFloat(weatherData.value.rain) + Math.random() * 2).toFixed(1)
     weatherData.value.pm25 = Math.floor(60 + Math.random() * 20)
     truckStats.value.dailyTonnage += Math.floor(Math.random() * 50)
+    
+    // 模拟人员违规和网络波动
+    if (Math.random() > 0.95) personnelStatus.value.dangerZone = Math.floor(Math.random() * 3) + 1;
+    else if (Math.random() > 0.7) personnelStatus.value.dangerZone = 0;
+    
+    networkStatus.value.bandwidth = (40 + Math.random() * 20 + (Math.random() > 0.9 ? 35 : 0)).toFixed(1);
+    networkStatus.value.ping = Math.floor(20 + Math.random() * 15 + (Math.random() > 0.9 ? 150 : 0));
+    networkStatus.value.cpuTemp = (55 + Math.random() * 5 + (Math.random() > 0.9 ? 30 : 0)).toFixed(1);
+
   }, 2000)
 })
 
