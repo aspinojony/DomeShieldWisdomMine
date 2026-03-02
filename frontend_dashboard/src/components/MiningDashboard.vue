@@ -60,6 +60,67 @@
             <div ref="chartRadar" class="echart-box" style="height: 200px;"></div>
           </div>
         </div>
+
+        <!-- 折叠区块 3：气象水文感知 -->
+        <div class="collapsible-section">
+          <div class="section-header" @click="toggleSection('weather')">
+            <h2 class="glowing-text" style="font-size: 1rem;">🌦️ 环境气象水文</h2>
+            <span class="collapse-icon">{{ leftSections.weather ? '▼' : '▶' }}</span>
+          </div>
+          <div class="section-body p-10" v-show="leftSections.weather">
+            <div class="weather-grid">
+              <div class="weather-item">
+                <span class="w-label">风速</span>
+                <span class="w-value">{{ weatherData.wind }} <small>m/s</small></span>
+              </div>
+              <div class="weather-item">
+                <span class="w-label">累计降雨</span>
+                <span class="w-value" :class="{'danger-text': weatherData.rain > 50}">{{ weatherData.rain }} <small>mm</small></span>
+              </div>
+              <div class="weather-item">
+                <span class="w-label">PM2.5</span>
+                <span class="w-value">{{ weatherData.pm25 }} <small>μg/m³</small></span>
+              </div>
+              <div class="weather-item">
+                <span class="w-label">能见度</span>
+                <span class="w-value">{{ weatherData.visibility }} <small>m</small></span>
+              </div>
+            </div>
+            <div class="weather-warning" v-if="weatherData.rain > 50">
+              ⚠️ 强降雨预警：边坡滑坡风险剧增！
+            </div>
+          </div>
+        </div>
+
+        <!-- 折叠区块 4：重装设备调度 -->
+        <div class="collapsible-section">
+          <div class="section-header" @click="toggleSection('trucks')">
+            <h2 class="glowing-text" style="font-size: 1rem;">🚛 重装设备态势</h2>
+            <span class="collapse-icon">{{ leftSections.trucks ? '▼' : '▶' }}</span>
+          </div>
+          <div class="section-body p-10" v-show="leftSections.trucks">
+            <div class="truck-stats">
+              <div class="stat-row">
+                <span>🟢 在线宽体卡车</span>
+                <strong>{{ truckStats.activeTrucks }} / {{ truckStats.totalTrucks }}</strong>
+              </div>
+              <div class="truck-progress">
+                <div class="truck-progress-fill" :style="{ width: (truckStats.activeTrucks / truckStats.totalTrucks * 100) + '%' }"></div>
+              </div>
+              
+              <div class="stat-row mt-10">
+                <span>🟡 在线电铲/挖掘机</span>
+                <strong>{{ truckStats.activeExcavators }} / {{ truckStats.totalExcavators }}</strong>
+              </div>
+              
+              <div class="stat-row mt-10">
+                <span>日累计运载量</span>
+                <strong class="text-cyan">{{ truckStats.dailyTonnage }} T</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </aside>
 
     <!-- 中央核心视图与底是指控台 -->
@@ -233,13 +294,29 @@ const sysStats = ref({ deviceCount: 0, ruleCount: 0 })
 let deviceRegistry = {}
 
 const loading = ref(true)
-const leftSections = ref({ sensors: true, radar: true })
+const leftSections = ref({ sensors: true, radar: false, weather: true, trucks: false })
 const activeTab = ref('ai')
 let pollingTimer = null
 
+// Mock 气象与矿卡数据
+const weatherData = ref({
+  wind: 4.2,
+  rain: 12.5,
+  pm25: 68,
+  visibility: 3500
+})
+
+const truckStats = ref({
+  activeTrucks: 42,
+  totalTrucks: 45,
+  activeExcavators: 8,
+  totalExcavators: 10,
+  dailyTonnage: 12500
+})
+
 const toggleSection = (name) => {
   leftSections.value[name] = !leftSections.value[name]
-  if (name === 'radar') {
+  if (name === 'radar' && leftSections.value.radar) {
     nextTick(() => chartRadarInstance?.resize())
   }
 }
@@ -625,6 +702,12 @@ onMounted(async () => {
     fetchHistoryAndRenderChart('SENSOR-MV-101', 'energy_level', chartSeismicInstance, '微震能量', '#ff003c')
     fetchHistoryAndRenderChart('SENSOR-DE-001', 'crack_width_mm', chartCrackInstance, '裂缝宽度', '#00f0ff')
     renderRadarChart()
+    
+    // 模拟气象和卡车数据的随机波动
+    weatherData.value.wind = (4 + Math.random() * 2).toFixed(1)
+    if (Math.random() > 0.8) weatherData.value.rain = (weatherData.value.rain + Math.random() * 2).toFixed(1)
+    weatherData.value.pm25 = Math.floor(60 + Math.random() * 20)
+    truckStats.value.dailyTonnage += Math.floor(Math.random() * 50)
   }, 2000)
 })
 
@@ -726,6 +809,70 @@ onUnmounted(() => {
   max-height: calc(100vh - 380px);
 }
 .sensor-list::-webkit-scrollbar { display: none; }
+
+/* 气象环境与矿卡调度组件 CSS */
+.p-10 { padding: 10px; }
+.mt-10 { margin-top: 10px; }
+.text-cyan { color: #00f0ff; }
+
+.weather-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.weather-item {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(0, 240, 255, 0.1);
+  padding: 8px;
+  border-radius: 4px;
+  text-align: center;
+}
+.w-label {
+  display: block;
+  font-size: 0.75rem;
+  color: #8892b0;
+  margin-bottom: 4px;
+}
+.w-value {
+  font-size: 1.1rem;
+  color: #fff;
+  font-family: 'Orbitron', monospace;
+}
+.w-value small { font-size: 0.7rem; color: #8892b0; }
+
+.weather-warning {
+  margin-top: 10px;
+  padding: 8px;
+  background: rgba(255, 0, 60, 0.2);
+  border: 1px solid #ff003c;
+  color: #ff003c;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  text-align: center;
+  animation: bg-pulse 1.5s infinite;
+}
+
+.truck-stats {
+  font-size: 0.85rem;
+}
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  color: #ccd6f6;
+}
+.truck-progress {
+  height: 6px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.truck-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #00ff88, #00f0ff);
+  transition: width 1s ease-in-out;
+}
 
 .sensor-card {
   background: rgba(255, 255, 255, 0.03);
