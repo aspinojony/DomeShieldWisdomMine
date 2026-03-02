@@ -575,14 +575,13 @@ let viewer = null
 let entityCollection = {}
 
 const initCesium = () => {
-  // 设置 Cesium Ion Token (用默认测试环境)
-  // 初始化地图底图 (添加一个科技感底图或者直接开启默认)
+  // ====== OpenStreetMap 底图 (完全免费，无需 Key，无限流) ======
+  const osmImagery = new Cesium.OpenStreetMapImageryProvider({
+    url: 'https://tile.openstreetmap.org/'
+  });
+
   viewer = new Cesium.Viewer('cesiumContainer', {
-    terrainProvider: async () => {
-        try {
-           return await Cesium.createWorldTerrainAsync();
-        } catch { return undefined;}
-    },
+    imageryProvider: osmImagery,
     animation: false,
     timeline: false,
     navigationHelpButton: false,
@@ -596,8 +595,8 @@ const initCesium = () => {
   // 隐藏底部的版权信息
   viewer._cesiumWidget._creditContainer.style.display = 'none';
 
-  // 恢复基础地球贴图外观，通过 CSS 给一个幽蓝色的遮罩层
-  viewer.scene.skyAtmosphere.hueShift = -0.5; // 轻微偏蓝
+  // 大气层偏蓝科技感
+  viewer.scene.skyAtmosphere.hueShift = -0.5;
 
   // 镜头定位到一个模拟露天矿山坐标 (内蒙古露天矿区附近)
   viewer.camera.flyTo({
