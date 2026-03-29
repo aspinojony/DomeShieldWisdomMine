@@ -3,180 +3,84 @@
     <div class="dashboard-grid">
       <!-- 左侧监控列表 (折叠式) -->
       <aside class="side-panel tech-panel left-panel">
-        <!-- 折叠区块 1：传感器列表 -->
-        <div class="collapsible-section">
-          <div class="section-header" @click="toggleSection('sensors')">
-            <h2 class="glowing-text">📡 实时设备状态</h2>
-            <span class="collapse-icon">{{ leftSections.sensors ? '▼' : '▶' }}</span>
-          </div>
-          <div class="section-body" v-show="leftSections.sensors">
-            <div class="sensor-list">
-              <div v-if="loading" class="loading-state">数据链路建立中...</div>
-              <div 
-                v-for="sensor in sensors" 
-                :key="sensor.device_id"
-                class="sensor-card"
-                :class="{'alert-state': isAlert(sensor)}"
-              >
-                <div class="sensor-title">
-                  <span class="dot" :class="isAlert(sensor) ? 'bg-red' : 'bg-green'"></span>
-                  {{ sensor.device_id }} 
-                  <span style="font-size: 0.8rem; color: #8892b0; margin-left: 8px;">
-                    [{{ sensor.device_name || '未命名' }}]
-                  </span>
-                </div>
-                <div class="sensor-type">{{ formatType(sensor.device_type) }}</div>
-                <div class="sensor-value">
-                  <template v-if="sensor.device_type === 'crack_meter'">
-                    裂缝: <strong>{{ sensor.crack_width_mm?.toFixed(2) }}</strong> mm
-                  </template>
-                  <template v-else-if="sensor.device_type === 'micro_seismic'">
-                    能量: <strong>{{ sensor.energy_level?.toFixed(2) }}</strong>
-                    频率: <strong>{{ sensor.frequency_hz?.toFixed(1) }}</strong> Hz
-                  </template>
-                  <template v-else-if="sensor.device_type === 'inclinometer'">
-                    X轴倾角: <strong>{{ sensor.angle_x?.toFixed(3) }}</strong> °
-                  </template>
-                  <template v-else-if="sensor.device_type === 'settlement'">
-                    沉降量: <strong>{{ sensor.settlement_mm?.toFixed(2) }}</strong> mm
-                  </template>
-                  <template v-else-if="sensor.device_type === 'water_pressure'">
-                    孔隙水压: <strong>{{ sensor.pressure_kpa?.toFixed(2) }}</strong> KPa
-                  </template>
-                </div>
-                <div class="sensor-time">{{ sensor.last_update?.split(' ')[1] }}</div>
-              </div>
-            </div>
-          </div>
+      <!-- 1: 作业设备 -->
+      <div class="left-section">
+        <div class="panel-header">
+           <div class="title-deco"></div>
+           <h2 class="glowing-text">作业设备</h2>
         </div>
-
-        <!-- 折叠区块 2：雷达图 -->
-        <div class="collapsible-section">
-          <div class="section-header" @click="toggleSection('radar')">
-            <h2 class="glowing-text" style="font-size: 1rem;">🕸 边坡风险雷达</h2>
-            <span class="collapse-icon">{{ leftSections.radar ? '▼' : '▶' }}</span>
-          </div>
-          <div class="section-body" v-show="leftSections.radar">
-            <div ref="chartRadar" class="echart-box" style="height: 200px;"></div>
-          </div>
+        <div class="section-body device-summary">
+            <div class="ds-row interactive-item" v-for="(stat, type) in miningSummary.asset_stats" :key="type" @click="focusOnCategory(type)">
+              <div class="ds-icon" :class="getAssetColor(type)">
+                <svg v-if="type === 'excavator'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l2-4h14l2 4"></path><path d="M1 9h22v6H1z"></path></svg>
+                <svg v-else-if="type === 'truck'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><path d="M2 14h20v6H2z"></path></svg>
+                <svg v-else-if="type === 'uav'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path></svg>
+                <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v19M5 8l14 8M19 8L5 16"></path></svg>
+              </div>
+              <div class="ds-info"><span>{{ formatAssetType(type) }}</span> 总数 <strong class="text-white">{{ stat.total }}</strong>台</div>
+              <div class="ds-status text-cyan">在线 <strong>{{ stat.online }}</strong>台</div>
+            </div>
         </div>
+      </div>
 
-        <!-- 折叠区块 3：气象水文感知 -->
-        <div class="collapsible-section">
-          <div class="section-header" @click="toggleSection('weather')">
-            <h2 class="glowing-text" style="font-size: 1rem;">🌦️ 环境气象水文</h2>
-            <span class="collapse-icon">{{ leftSections.weather ? '▼' : '▶' }}</span>
-          </div>
-          <div class="section-body p-10" v-show="leftSections.weather">
-            <div class="weather-grid">
-              <div class="weather-item">
-                <span class="w-label">风速</span>
-                <span class="w-value">{{ weatherData.wind }} <small>m/s</small></span>
-              </div>
-              <div class="weather-item">
-                <span class="w-label">累计降雨</span>
-                <span class="w-value" :class="{'danger-text': weatherData.rain > 50}">{{ weatherData.rain }} <small>mm</small></span>
-              </div>
-              <div class="weather-item">
-                <span class="w-label">PM2.5</span>
-                <span class="w-value">{{ weatherData.pm25 }} <small>μg/m³</small></span>
-              </div>
-              <div class="weather-item">
-                <span class="w-label">能见度</span>
-                <span class="w-value">{{ weatherData.visibility }} <small>m</small></span>
-              </div>
-            </div>
-            <div class="weather-warning" v-if="weatherData.rain > 50">
-              ⚠️ 强降雨预警：边坡滑坡风险剧增！
-            </div>
-          </div>
+      <!-- 2: 作业动态 -->
+      <div class="left-section" style="border-top: 1px dashed rgba(0,240,255,0.2);">
+        <div class="panel-header">
+           <div class="title-deco"></div>
+           <h2 class="glowing-text">作业动态</h2>
         </div>
-
-        <!-- 折叠区块 4：重装设备调度 -->
-        <div class="collapsible-section">
-          <div class="section-header" @click="toggleSection('trucks')">
-            <h2 class="glowing-text" style="font-size: 1rem;">🚛 重装设备态势</h2>
-            <span class="collapse-icon">{{ leftSections.trucks ? '▼' : '▶' }}</span>
-          </div>
-          <div class="section-body p-10" v-show="leftSections.trucks">
-            <div class="truck-stats">
-              <div class="stat-row">
-                <span>🟢 在线宽体卡车</span>
-                <strong>{{ truckStats.activeTrucks }} / {{ truckStats.totalTrucks }}</strong>
-              </div>
-              <div class="truck-progress">
-                <div class="truck-progress-fill" :style="{ width: (truckStats.activeTrucks / truckStats.totalTrucks * 100) + '%' }"></div>
-              </div>
-              
-              <div class="stat-row mt-10">
-                <span>🟡 在线电铲/挖掘机</span>
-                <strong>{{ truckStats.activeExcavators }} / {{ truckStats.totalExcavators }}</strong>
-              </div>
-              
-              <div class="stat-row mt-10">
-                <span>日累计运载量</span>
-                <strong class="text-cyan">{{ truckStats.dailyTonnage }} T</strong>
-              </div>
-            </div>
-          </div>
+        <div class="section-body dynamic-log custom-scrollbar">
+           <div class="log-item interactive-item" v-for="(log, i) in miningSummary.operation_logs" :key="i" @click="showLogDetail(log)">
+             <span class="log-time">{{ log.time }}</span>
+             <span class="log-event" :class="{'text-cyan': log.level === 'info', 'text-green': log.level === 'success'}">
+               {{ log.event }}
+             </span>
+           </div>
+           <div v-if="miningSummary.operation_logs.length === 0" class="empty-hint" style="padding: 10px; color: #8892b0; font-size: 0.8rem; text-align: center;">暂无动态记录</div>
         </div>
+      </div>
 
-        <!-- 折叠区块 5：人员空间态势 (UWB) -->
-        <div class="collapsible-section">
-          <div class="section-header" @click="toggleSection('personnel')">
-            <h2 class="glowing-text" style="font-size: 1rem;">👷‍♂️ 电子围栏与人员态势</h2>
-            <span class="collapse-icon">{{ leftSections.personnel ? '▼' : '▶' }}</span>
-          </div>
-          <div class="section-body p-10" v-show="leftSections.personnel">
-            <div class="truck-stats">
-              <div class="stat-row">
-                <span>采坑作业区</span>
-                <strong>{{ personnelStatus.pitArea }} 人</strong>
-              </div>
-              <div class="stat-row mt-10">
-                <span>排土场区</span>
-                <strong>{{ personnelStatus.dumpArea }} 人</strong>
-              </div>
-              <div class="stat-row mt-10">
-                <span>生活区</span>
-                <strong>{{ personnelStatus.livingArea }} 人</strong>
-              </div>
-            </div>
-            
-            <div class="weather-warning" v-if="personnelStatus.dangerZone > 0" style="background: rgba(255, 0, 60, 0.4); box-shadow: 0 0 15px rgba(255,0,60,0.5);">
-              🚨 警告：检测到 <strong>{{ personnelStatus.dangerZone }}</strong> 人误入“爆破红带警戒区/滑坡预警区”！
-            </div>
-          </div>
+      <!-- 3: 预警信息 -->
+      <div class="left-section flex-grow" style="border-top: 1px dashed rgba(0,240,255,0.2);">
+        <div class="panel-header">
+           <div class="title-deco"></div>
+           <h2 class="glowing-text">预警信息</h2>
         </div>
-
-        <!-- 折叠区块 6：通讯链路健康度 -->
-        <div class="collapsible-section">
-          <div class="section-header" @click="toggleSection('network')">
-            <h2 class="glowing-text" style="font-size: 1rem;">📶 专网链路与健康度</h2>
-            <span class="collapse-icon">{{ leftSections.network ? '▼' : '▶' }}</span>
-          </div>
-          <div class="section-body p-10" v-show="leftSections.network">
-            <div class="truck-stats">
-              <div class="stat-row">
-                <span>5G 上/下行带宽使用率</span>
-                <strong :class="{'danger-text': networkStatus.bandwidth > 90}">{{ networkStatus.bandwidth }} %</strong>
-              </div>
-              <div class="truck-progress">
-                <div class="truck-progress-fill" :style="{ width: networkStatus.bandwidth + '%', background: networkStatus.bandwidth > 90 ? 'linear-gradient(90deg, #ff9900, #ff003c)' : 'linear-gradient(90deg, #00f0ff, #00ff88)' }"></div>
-              </div>
-              <div class="stat-row mt-10">
-                <span>无人机微波图传 Ping 延迟</span>
-                <strong :class="{'danger-text': networkStatus.ping > 150}">{{ networkStatus.ping }} ms</strong>
-              </div>
-              <div class="stat-row mt-10">
-                <span>IoT 传输网关 CPU 温度</span>
-                <strong :class="{'danger-text': networkStatus.cpuTemp > 85}">{{ networkStatus.cpuTemp }} °C</strong>
-              </div>
-            </div>
-          </div>
+        <div class="section-body alert-list custom-scrollbar">
+           <div class="alert-item" v-for="alert in miningSummary.recent_alerts" :key="alert.id" @click="flyToSensor(alert.device_id)">
+             <div class="alert-level" :class="'level-' + getAlertLevel(alert.alert_level)">
+               {{ formatLevelName(alert.alert_level) }}
+             </div>
+             <div class="alert-content">
+               {{ alert.message }}
+               <br/><span class="alert-time">{{ formatDateSimple(alert.triggered_at) }}</span>
+             </div>
+           </div>
+           <div v-if="miningSummary.recent_alerts.length === 0" class="empty-hint">暂无异常告警</div>
         </div>
+      </div>
 
-      </aside>
+      <!-- 4: 2024吨成本 -->
+      <div class="left-section" style="border-top: 1px dashed rgba(0,240,255,0.2);">
+        <div class="panel-header" style="justify-content: space-between;">
+           <div style="display:flex;align-items:center;">
+              <div class="title-deco"></div>
+              <h2 class="glowing-text">2024吨成本</h2>
+           </div>
+           <span class="unit" style="font-size:0.7rem;color:#8892b0;">元/吨</span>
+        </div>
+        <div class="section-body cost-panel" style="display: flex; align-items: center; justify-content: space-around;">
+           <div ref="chartCost" class="echart-box" style="height: 120px; width: 120px;"></div>
+           <div class="cost-legend">
+              <div class="cl-row" v-for="(c, i) in miningSummary.cost_metrics" :key="i">
+                <i class="dot" :style="{ background: c.color }"></i>{{ c.name }} 
+                <strong :style="{ color: c.color }">{{ c.cost }}</strong> 
+                <span>{{ c.value }}%</span>
+              </div>
+           </div>
+        </div>
+      </div>
+    </aside>
 
     <!-- 中央核心视图与底是指控台 -->
     <section class="main-view tech-panel">
@@ -185,16 +89,16 @@
 
       <!-- 视围交互：底部影视级导播台 -->
       <div class="cinematic-pov-controls glass-card">
-        <button class="pov-btn" @click="flyToGlobal">🌍 全局鸟瞰</button>
-        <button class="pov-btn" @click="flyToUAV">🚁 UAV 跟飞</button>
-        <button class="pov-btn danger-btn" @click="flyToDanger">🚨 高危抵近</button>
+        <button class="pov-btn" @click="flyToGlobal"> 全局鸟瞰</button>
+        <button class="pov-btn" @click="flyToUAV"> UAV 跟飞</button>
+        <button class="pov-btn danger-btn" @click="flyToDanger"> 高危抵近</button>
       </div>
 
       <!-- 视围交互：右下角环境干涉面板 -->
       <div class="env-control-panel glass-card">
         <h4>环境干涉台</h4>
-        <label><input type="checkbox" v-model="envSettings.shadows" @change="toggleShadows"> 🌞 实时光照与阴影</label>
-        <label><input type="checkbox" v-model="envSettings.fence" @change="toggleFence"> 🚧 电子红带警戒图层</label>
+        <label><input type="checkbox" v-model="envSettings.shadows" @change="toggleShadows">  实时光照与阴影</label>
+        <label><input type="checkbox" v-model="envSettings.fence" @change="toggleFence">  电子红带警戒图层</label>
       </div>
       
       <!-- 3D 实体点击弹窗 -->
@@ -204,7 +108,7 @@
         :style="{ left: popupPosition.x + 'px', top: popupPosition.y + 'px' }"
       >
         <div class="popup-header">
-          <h4>📡 {{ selectedSensor.device_id }}</h4>
+          <h4> {{ selectedSensor.device_id }}</h4>
           <button class="close-btn" @click="closePopup">×</button>
         </div>
         <div class="popup-body">
@@ -220,7 +124,7 @@
             <p v-if="selectedSensor.settlement_mm !== undefined">沉降量: <span>{{ selectedSensor.settlement_mm }} mm</span></p>
             <p v-if="selectedSensor.pressure_kpa !== undefined">孔隙水压力: <span>{{ selectedSensor.pressure_kpa }} kPa</span></p>
           </div>
-          <button class="btn btn-detail" @click="viewDetailAction(selectedSensor)">🔍 查看分析图谱</button>
+          <button class="btn btn-detail" @click="viewDetailAction(selectedSensor)"> 查看分析图谱</button>
         </div>
       </div>
       
@@ -232,8 +136,16 @@
       </div>
 
       <!-- 空天指控中心 (悬浮于底部) -->
-      <div class="uav-command-center">
-        <h3 class="uav-title">🚀 空天无人机指控集群</h3>
+      <div 
+        class="uav-command-center"
+        :class="{'uav-active-mode': activeUavCount > 0 || forceShowUav, 'uav-minimized': activeUavCount === 0 && !forceShowUav}"
+      >
+        <h3 class="uav-title" @click="forceShowUav = !forceShowUav">
+           空天无人机指控集群 
+          <span v-if="activeUavCount > 0" class="mini-status-badge">任务中 ({{ activeUavCount }})</span>
+          <span v-else class="mini-status-badge inactive">待命</span>
+          <span class="uav-toggle-hint">{{ (activeUavCount > 0 || forceShowUav) ? '▼' : '▲' }}</span>
+        </h3>
         <div class="uav-fleet-list">
           <div 
             v-for="drone in uavFleet" 
@@ -249,7 +161,7 @@
               <span class="uav-status-badge" :class="getStatusClass(drone.status)">
                 {{ drone.status }}
               </span>
-              <span class="uav-target" v-if="drone.target">🎯 锁定: {{ drone.target }}</span>
+              <span class="uav-target" v-if="drone.target"> 锁定: {{ drone.target }}</span>
             </div>
             
             <!-- 进度条模拟飞行 -->
@@ -259,144 +171,188 @@
           </div>
         </div>
       </div>
+
+      <!-- 无人机实时侦察画面 (新增) -->
+      <div v-if="latestVisionResult && activeUavCount > 0" class="uav-vision-feed glass-card animate-slide-up">
+        <div class="feed-header">
+           <span class="live-tag">● LIVE</span>
+           <span class="feed-title">无人机载视觉智脑联测</span>
+        </div>
+        <div class="feed-body">
+           <img :src="`http://${window.location.hostname}:8003` + latestVisionResult.data.image_url" alt="Drone Vision" class="vision-img" />
+           <div class="vision-overlay">
+              <div class="overlay-row"><span>目标:</span> <strong class="text-cyan">SLOPE-ZONE-A</strong></div>
+              <div class="overlay-row"><span>研判:</span> <strong :class="latestVisionResult.data.alert_level.includes('安全') ? 'safe-text' : 'danger-text'">{{ latestVisionResult.data.alert_level }}</strong></div>
+           </div>
+        </div>
+      </div>
     </section>
 
-    <!-- 右侧分析面板 (Tab 切换) -->
-    <aside class="side-panel tech-panel right-panel">
-      <div class="panel-header">
-        <h2 class="glowing-text">关键趋势与AI智判</h2>
+    <!-- 底部指控台：全局物流与核心效率 -->
+    <aside class="side-panel tech-panel bottom-panel">
+      <!-- OEE 全局分析 -->
+      <div class="bottom-section" style="flex: 1.2;">
+        <div class="panel-header" style="display:flex; justify-content: space-between; align-items: center;">
+           <h2 class="glowing-text">OEE 综合效率</h2>
+           <span class="text-green" style="font-weight: bold; font-size: 1.1rem; text-shadow: 0 0 5px #00ff88;">{{ miningSummary.equipment_oee?.oee_score }}%</span>
+        </div>
+        <div class="section-body device-info-panel" style="flex-direction: column; align-items: stretch; justify-content: center;">
+           <div class="oee-bar-row">
+              <span class="oee-label">时间稼动率</span>
+              <div class="oee-bar"><div class="oee-fill bg-cyan" :style="{ width: miningSummary.equipment_oee?.availability + '%' }"></div></div>
+              <span class="oee-val">{{ miningSummary.equipment_oee?.availability }}%</span>
+           </div>
+           <div class="oee-bar-row">
+              <span class="oee-label">性能表现率</span>
+              <div class="oee-bar"><div class="oee-fill bg-blue" :style="{ width: miningSummary.equipment_oee?.performance + '%' }"></div></div>
+              <span class="oee-val">{{ miningSummary.equipment_oee?.performance }}%</span>
+           </div>
+           <div class="oee-bar-row">
+              <span class="oee-label">出矿质量率</span>
+              <div class="oee-bar"><div class="oee-fill bg-green" :style="{ width: miningSummary.equipment_oee?.quality + '%' }"></div></div>
+              <span class="oee-val">{{ miningSummary.equipment_oee?.quality }}%</span>
+           </div>
+        </div>
+      </div>
+      
+      <!-- 物流卡口 (防癌点) -->
+      <div class="bottom-section" style="flex: 1.5; border-left: 1px dashed rgba(0,240,255,0.2);">
+        <div class="panel-header">
+           <h2 class="glowing-text">物流拥堵卡口预警</h2>
+        </div>
+        <div class="section-body material-quality-panel" style="flex-direction: column; gap: 4px; overflow-y: auto; padding: 4px 10px;">
+           <div class="chokepoint-row interactive-item" v-for="(cp, i) in miningSummary.logistic_chokepoints" :key="i" :class="cp.status" @click="focusChokepoint(cp)">
+              <span class="cp-loc"><i class="dot" :class="cp.status === 'congested' ? 'bg-orange' : 'bg-green'"></i> {{ cp.location }}</span>
+              <span class="cp-wait">等候车辆: <strong :class="cp.status === 'congested' ? 'danger-text' : 'text-white'">{{ cp.waiting_trucks }}</strong> 辆</span>
+              <span class="cp-time">平均耗时: <strong>{{ cp.avg_wait_min }}</strong> min</span>
+           </div>
+        </div>
       </div>
 
-      <!-- Tab 栏 -->
-      <div class="tab-bar">
-        <button class="tab-btn" :class="{ active: activeTab === 'ai' }" @click="switchTab('ai')">
-          🧠 AI研判 
-          <span v-if="(aiAlerts.length + alertRecords.length) > 0" class="tab-badge pulse-anim">{{ aiAlerts.length + alertRecords.length }}</span>
-        </button>
-        <button class="tab-btn" :class="{ active: activeTab === 'seismic' }" @click="switchTab('seismic')">📈 微震</button>
-        <button class="tab-btn" :class="{ active: activeTab === 'crack' }" @click="switchTab('crack')">📉 裂缝</button>
-      </div>
-
-      <!-- Tab 内容区 -->
-      <div class="tab-content">
-        <transition name="fade-slide" mode="out-in">
-        <!-- AI 研判 Tab -->
-        <div v-if="activeTab === 'ai'" class="tab-pane" key="ai-tab">
-          <h3 class="ai-title">🧠 智能研判预警中心</h3>
-          <div class="ai-alerts-list custom-scrollbar">
-            <div v-if="aiAlerts.length === 0" class="loading-state">AI 引擎监控中，暂无异常...</div>
-            <div 
-              v-for="(alert, index) in aiAlerts" 
-              :key="'ai-'+index"
-              class="ai-alert-item click-pointer"
-              :class="{'level-3': alert.level.includes('三级'), 'level-2': alert.level.includes('二级')}"
-              @click="flyToSensor(alert.device)"
-            >
-              <div class="alert-header">
-                <span class="alert-time">{{ alert.time.split(' ')[1] }}</span>
-                <span class="alert-device">[{{ alert.device }}]</span>
-              </div>
-              <div class="alert-info">
-                <span>塌方概率: <strong :class="{'danger-text': alert.probability > 80}">{{ alert.probability }}%</strong></span>
-                <span class="level-badge">{{ alert.level }}</span>
-              </div>
-              <div class="alert-action">{{ alert.action }}</div>
-            </div>
-          </div>
-          
-          <h3 class="ai-title" style="margin-top: 15px;">🚨 业务阈值预警记录</h3>
-          <div class="ai-alerts-list custom-scrollbar">
-            <div v-if="alertRecords.length === 0" class="loading-state">当前无业务阈值告警...</div>
-            <div 
-              v-for="record in alertRecords" 
-              :key="'biz-'+record.id"
-              class="ai-alert-item click-pointer"
-              :class="{'level-3': record.alert_level === 'critical', 'level-2': record.alert_level === 'warning', 'is-unacked': !record.is_acknowledged}"
-              @click="flyToSensor(record.device_id)"
-            >
-              <div class="alert-header">
-                <span class="alert-time">{{ record.triggered_at ? record.triggered_at.split(' ')[1] : '' }}</span>
-                <span class="alert-device">[{{ record.device_id }}]</span>
-              </div>
-              <div class="alert-info">
-                <span>{{ record.metric_field }} = <strong>{{ parseFloat(record.metric_value).toFixed(2) }}</strong> (阈值: {{ record.threshold }})</span>
-                <span class="level-badge unacked-badge" v-if="!record.is_acknowledged">未处理</span>
-                <span class="level-badge acked-badge" v-else>已处理</span>
-              </div>
-            </div>
-          </div>
+      <!-- 产量与剥离量双核心 -->
+      <div class="bottom-section" style="flex: 1.5; border-left: 1px dashed rgba(0,240,255,0.2);">
+        <div class="panel-header">
+           <h2 class="glowing-text">核心采剥进度</h2>
         </div>
-
-        <!-- 微震 Tab -->
-        <div v-else-if="activeTab === 'seismic'" class="tab-pane" key="seismic-tab">
-          <h3>微震仪异常振幅追踪 [SENSOR-MV-101]</h3>
-          <div ref="chartSeismic" class="echart-box"></div>
+        <div class="section-body production-panel">
+           <div class="gauge-card">
+              <div ref="chartYield" class="echart-box" style="height: 120px; width: 120px;"></div>
+           </div>
+           <div class="gauge-text-group">
+              <div class="gauge-info">
+                 <div class="g-title">{{ miningSummary.production_today.current }} <small>采矿量 (吨)</small></div>
+                 <div class="g-val color-green">
+                    <svg width="100" height="30" viewBox="0 0 100 30">
+                       <rect x="0" y="10" width="100" height="10" rx="5" fill="rgba(255,255,255,0.1)"></rect>
+                       <rect x="0" y="10" :width="Math.min(100, (miningSummary.production_today.current/miningSummary.production_today.target)*100)" height="10" rx="5" fill="#00ff88"></rect>
+                    </svg>
+                 </div>
+                 <div class="g-sub">目标: {{ miningSummary.production_today.target }} 吨</div>
+              </div>
+              <div class="gauge-info">
+                 <div class="g-title">{{ miningSummary.stripping_progress?.current_m3 || 0 }} <small>剥离进度 (m³)</small></div>
+                 <div class="g-val color-orange">
+                     <svg width="100" height="30" viewBox="0 0 100 30">
+                       <rect x="0" y="10" width="100" height="10" rx="5" fill="rgba(255,255,255,0.1)"></rect>
+                       <rect x="0" y="10" :width="Math.min(100, ((miningSummary.stripping_progress?.current_m3 || 0)/(miningSummary.stripping_progress?.target_m3 || 1))*100)" height="10" rx="5" fill="#ff9f00"></rect>
+                    </svg>
+                 </div>
+                 <div class="g-sub">实时剥采比: {{ miningSummary.stripping_progress?.ratio }}</div>
+              </div>
+           </div>
         </div>
-
-        <!-- 裂缝 Tab -->
-        <div v-else-if="activeTab === 'crack'" class="tab-pane" key="crack-tab">
-          <h3>边坡裂缝扩展演化 [SENSOR-DE-001]</h3>
-          <div ref="chartCrack" class="echart-box"></div>
-        </div>
-        </transition>
       </div>
     </aside>
   </div>
   </div>
+  <!-- AI 推演证据弹窗 (新增核心交互) -->
+  <div v-if="selectedAiAlert" class="ai-modal-overlay" @click.self="closeAiDetail">
+      <div class="ai-modal-content glass-card animate-zoom-in">
+          <div class="modal-header">
+              <h3 class="glowing-text"> 算法深度研判：{{ selectedAiAlert.id }}</h3>
+              <button class="close-btn" @click="closeAiDetail">×</button>
+          </div>
+          <div class="modal-body">
+              <div class="risk-info-grid">
+                  <div class="risk-meter-box">
+                      <div class="meter-header">
+                        <span>坍塌概率阈值推演</span>
+                        <strong :style="{ color: getProbColor(selectedAiAlert.probability) }">{{ selectedAiAlert.probability }}%</strong>
+                      </div>
+                      <div class="meter-track">
+                          <div class="meter-fill" :style="{ width: selectedAiAlert.probability + '%', background: getProbColor(selectedAiAlert.probability) }"></div>
+                      </div>
+                  </div>
+                  <div class="risk-context">
+                      <p><strong>判别级别:</strong> <span :class="getProbLevelClass(selectedAiAlert.probability)">{{ selectedAiAlert.level }}</span></p>
+                      <p><strong>关联设备:</strong> {{ selectedAiAlert.device }}</p>
+                      <p><strong>指令预案:</strong> {{ selectedAiAlert.action }}</p>
+                  </div>
+              </div>
+              
+              <div class="evidence-section">
+                  <h4> 60 min 联合传感器滑动窗口 (LSTM 证据链)</h4>
+                  <div ref="aiEvidenceChart" class="evidence-chart-view"></div>
+              </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-primary" @click="flyToSensor(selectedAiAlert.device); closeAiDetail(); forceShowUav = true"> 定位至该区域</button>
+            <button class="btn btn-outline" @click="closeAiDetail">关闭研判</button>
+          </div>
+      </div>
+  </div>
+
+  <!-- HT 分级展示：设备精细化交互 (Micro View) -->
+  <EquipmentDetailHT 
+    v-if="selectedEquipment" 
+    :equipment="selectedEquipment" 
+    @close="selectedEquipment = null" 
+  />
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import axios from 'axios'
 import * as echarts from 'echarts'
 import * as Cesium from 'cesium'
 import 'cesium/Build/Cesium/Widgets/widgets.css'
+import EquipmentDetailHT from './EquipmentDetailHT.vue'
 
-const API_BASE = 'http://127.0.0.1:8000/api/v1'
-const API_AI_BASE = 'http://127.0.0.1:8001/api/v1'
-const API_BIZ_BASE = 'http://127.0.0.1:8002/api/v1' // 新增核心业务API
+const API_BASE = `http://${window.location.hostname}:8000/api/v1`
+const API_AI_BASE = `http://${window.location.hostname}:8001/api/v1`
+const API_BIZ_BASE = `http://${window.location.hostname}:8002/api/v1` // 新增核心业务API
+const API_VISION_BASE = `http://${window.location.hostname}:8003/api/v1` // 新增无人机智能视觉API
 
 const sensors = ref([])
 const aiAlerts = ref([])
 const uavFleet = ref([]) // 新增：无人机舰队状态
 const alertRecords = ref([])
+const miningSummary = ref({
+  safety_status: 'green',
+  asset_stats: { excavator: {online:0, total:0}, truck: {online:0, total:0}, uav: {online:0, total:0}, crusher: {online:0, total:0} },
+  production_today: { current: 0, target: 5000.0, efficiency: 0, material_stock: 0, fuel_stock: 0 },
+  recent_alerts: [],
+  environment: { wind_speed: 0, visibility: 0, pm25: 0 },
+  operation_logs: [],
+  cost_metrics: [],
+  key_equipment: [],
+  material_quality: []
+})
 const sysStats = ref({ deviceCount: 0, ruleCount: 0 })
+const selectedAiAlert = ref(null)
+const latestVisionResult = ref(null) // 新增：最近视觉研判结果
+const selectedEquipment = ref(null) // 新增：分级展示选中的精细化模型
+const aiEvidenceChart = ref(null)
+let aiEvidenceChartInstance = null
+const forceShowUav = ref(false)
+const activeUavCount = computed(() => uavFleet.value.filter(d => d.status !== '待命闲置' && d.status !== '已返航').length)
 // 保存从业务后端获取的设备元数据
 let deviceRegistry = {}
 
 const loading = ref(true)
-const leftSections = ref({ sensors: true, radar: false, weather: false, trucks: false, personnel: true, network: true })
+const leftSections = ref({ devices: true, logs: true, alerts: true, costs: true })
 const activeTab = ref('ai')
 let pollingTimer = null
-
-// Mock 气象与矿卡数据
-const weatherData = ref({
-  wind: 4.2,
-  rain: 12.5,
-  pm25: 68,
-  visibility: 3500
-})
-
-const truckStats = ref({
-  activeTrucks: 42,
-  totalTrucks: 45,
-  activeExcavators: 8,
-  totalExcavators: 10,
-  dailyTonnage: 12500
-})
-
-const personnelStatus = ref({
-  pitArea: 104,
-  dumpArea: 25,
-  livingArea: 310,
-  dangerZone: 0
-})
-
-const networkStatus = ref({
-  bandwidth: 45.2,
-  ping: 25,
-  cpuTemp: 56.5
-})
 
 const toggleSection = (name) => {
   leftSections.value[name] = !leftSections.value[name]
@@ -413,50 +369,151 @@ const switchTab = (tab) => {
   })
 }
 
-// 图表实例
-let chartSeismicInstance = null
-let chartCrackInstance = null
-let chartRadarInstance = null
-const chartSeismic = ref(null)
-const chartCrack = ref(null)
-const chartRadar = ref(null)
-
-// 风险雷达渲染逻辑
-const renderRadarChart = () => {
-  if (!chartRadarInstance) return;
-  const option = {
-    radar: {
-      indicator: [
-        { name: '沉降异常度', max: 100 },
-        { name: '微震活动频数', max: 100 },
-        { name: '孔隙水压风险', max: 100 },
-        { name: '裂缝扩展率', max: 100 },
-        { name: '支护应力突变', max: 100 }
-      ],
-      splitArea: { areaStyle: { color: ['rgba(0, 240, 255, 0.02)', 'rgba(0, 240, 255, 0.05)'] } },
-      axisLine: { lineStyle: { color: 'rgba(0, 240, 255, 0.3)' } },
-      splitLine: { lineStyle: { color: 'rgba(0, 240, 255, 0.2)' } },
-      axisName: { color: '#8892b0', fontSize: 10 }
-    },
-    series: [{
-      type: 'radar',
-      data: [{
-        value: [
-          30 + Math.random() * 20, 
-          aiAlerts.value.length > 0 ? 80 : 20, 
-          40 + Math.random() * 10, 
-          20 + Math.random() * 15, 
-          50
-        ],
-        name: '当前矿区风险画像',
-        itemStyle: { color: '#00f0ff' },
-        areaStyle: { color: 'rgba(0, 240, 255, 0.3)' },
-        lineStyle: { color: '#00f0ff', width: 2 }
-      }]
-    }]
-  };
-  chartRadarInstance.setOption(option);
+const openAiDetail = (alert) => {
+  selectedAiAlert.value = alert
+  nextTick(() => {
+    renderEvidenceChart()
+  })
 }
+
+const closeAiDetail = () => {
+  selectedAiAlert.value = null
+  aiEvidenceChartInstance?.dispose()
+  aiEvidenceChartInstance = null
+}
+
+const getProbColor = (p) => {
+  if (p > 80) return '#ff003c'
+  if (p > 50) return '#ff9900'
+  return '#00f0ff'
+}
+
+const getProbLevelClass = (p) => {
+  if (p > 80) return 'danger-text'
+  if (p > 50) return 'warning-text'
+  return 'safe-text'
+}
+
+const renderEvidenceChart = () => {
+  if (!aiEvidenceChart.value || !selectedAiAlert.value?.evidence) return
+  
+  if (!aiEvidenceChartInstance) {
+    aiEvidenceChartInstance = echarts.init(aiEvidenceChart.value)
+  }
+
+  const data = selectedAiAlert.value.evidence
+  const features = ['裂缝(mm)', '微震(J)', '倾角(°)', '沉降(mm)']
+  const series = features.map((name, i) => ({
+    name,
+    type: 'line',
+    showSymbol: false,
+    data: data.map(point => point[i]),
+    smooth: true,
+    lineStyle: { width: 2 }
+  }))
+
+  const option = {
+    color: ['#00f0ff', '#00ff88', '#ff9900', '#ff003c'],
+    tooltip: { trigger: 'axis', backgroundColor: 'rgba(5, 12, 34, 0.9)', borderColor: '#00f0ff', textStyle: { color: '#fff' } },
+    legend: { textStyle: { color: '#8892b0' }, bottom: 0 },
+    grid: { top: 40, left: 40, right: 20, bottom: 60 },
+    xAxis: { type: 'category', data: Array.from({length: 60}, (_, i) => -60 + i + 'min'), axisLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } } },
+    yAxis: { type: 'value', splitLine: { lineStyle: { color: 'white', opacity: 0.05 } } },
+    series
+  }
+  
+  aiEvidenceChartInstance.setOption(option)
+}
+
+// 界面交互函数
+const focusOnCategory = (category) => {
+  if(!viewer) return;
+  viewer.camera.flyTo({
+    destination: Cesium.Cartesian3.fromDegrees(109.95+Math.random()*0.02, 39.80+Math.random()*0.02, 800),
+    duration: 1.5
+  })
+}
+
+const showLogDetail = (log) => {
+  // Can be extended to show modal or fly
+  console.log('点击了日志', log)
+}
+
+const focusChokepoint = (cp) => {
+  if(!viewer) return;
+  viewer.camera.flyTo({
+    destination: Cesium.Cartesian3.fromDegrees(109.958, 39.805, 500),
+    duration: 1.0,
+    orientation: {
+      heading: Cesium.Math.toRadians(45.0),
+      pitch: Cesium.Math.toRadians(-45.0)
+    }
+  })
+}
+
+// 图表实例
+let chartCostInstance = null
+let chartYieldInstance = null
+const chartCost = ref(null)
+const chartYield = ref(null)
+
+// 新仪表盘图表渲染
+const renderNewCharts = () => {
+  if (chartCost.value && !chartCostInstance) {
+    chartCostInstance = echarts.init(chartCost.value);
+    chartCostInstance.setOption({
+      tooltip: { trigger: 'item' },
+      series: [
+        {
+          name: '成本',
+          type: 'pie',
+          radius: ['20%', '80%'],
+          center: ['50%', '50%'],
+          roseType: 'area',
+          label: { show: false },
+          data: [
+            { value: 40, name: '炸药', itemStyle: { color: '#00f0ff' } },
+            { value: 38, name: '中保', itemStyle: { color: '#3a86ff' } },
+            { value: 32, name: '工资', itemStyle: { color: '#ff9900' } },
+            { value: 30, name: '柴油', itemStyle: { color: '#ccd6f6' } },
+          ]
+        }
+      ]
+    });
+  }
+  
+  if (chartYield.value && !chartYieldInstance) {
+    chartYieldInstance = echarts.init(chartYield.value);
+    chartYieldInstance.setOption({
+      series: [
+        {
+          type: 'gauge',
+          startAngle: 180,
+          endAngle: 0,
+          min: 0,
+          max: 100,
+          splitNumber: 5,
+          axisLine: {
+            lineStyle: { width: 10, color: [[0.32, '#00f0ff'], [1, 'rgba(0, 240, 255, 0.2)']] }
+          },
+          pointer: { show: false },
+          axisTick: { show: false },
+          splitLine: { show: false },
+          axisLabel: { show: false },
+          detail: {
+            valueAnimation: true,
+            fontSize: 24,
+            offsetCenter: [0, '-10%'],
+            color: '#fff',
+            formatter: '{value}%'
+          },
+          data: [{ value: 32 }]
+        }
+      ]
+    });
+  }
+}
+
 
 // 三维标签弹窗状态
 const selectedSensor = ref(null)
@@ -502,26 +559,61 @@ const getStatusClass = (status) => {
   return 'status-done'
 }
 
-// 抓取业务平台的元数据（设备列表、告警规则、系统概况）
+// 抓取业务平台的元数据
 const fetchBusinessData = async () => {
   try {
-    const [devRes, ruleRes, alertRes] = await Promise.all([
-      axios.get(`${API_BIZ_BASE}/devices`),
-      axios.get(`${API_BIZ_BASE}/alert-rules`),
-      axios.get(`${API_BIZ_BASE}/alert-records?limit=5`)
-    ]);
+    const config = { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
     
-    // 建立设备元数据字典
-    devRes.data.forEach(d => {
-      deviceRegistry[d.device_id] = d;
-    });
+    // 1. 获取汇总概览
+    const summaryRes = await axios.get(`${API_BIZ_BASE}/ops/mining-summary`, config)
+    miningSummary.value = summaryRes.data
     
-    sysStats.value.deviceCount = devRes.data.length;
-    sysStats.value.ruleCount = ruleRes.data.length;
-    alertRecords.value = alertRes.data;
+    // 2. 更新基础统计
+    sysStats.value.deviceCount = Object.values(miningSummary.value.asset_stats).reduce((acc, curr) => acc + curr.total, 0)
+    
+    // 3. 更新图表与仪表盘
+    if (chartYieldInstance) {
+      const progress = (miningSummary.value.production_today.current / miningSummary.value.production_today.target) * 100
+      chartYieldInstance.setOption({ series: [{ data: [{ value: Math.min(100, progress.toFixed(1)) }] }] })
+    }
+    
+    if (chartCostInstance && miningSummary.value.cost_metrics.length > 0) {
+      const pieData = miningSummary.value.cost_metrics.map(c => ({
+          value: c.value, name: c.name, itemStyle: { color: c.color }
+      }))
+      chartCostInstance.setOption({ series: [{ data: pieData }] })
+    }
+
+    // 更新设备元数据字典 (保持原有逻辑)
+    const devRes = await axios.get(`${API_BIZ_BASE}/devices`, config)
+    devRes.data.forEach(d => { deviceRegistry[d.device_id] = d })
+
   } catch(err) {
-    console.warn("未能连接核心业务后台:", err);
+    console.warn("未能连接核心业务后台:", err)
   }
+}
+
+const formatAssetType = (type) => {
+  const map = { 'excavator': '挖掘机', 'truck': '工程大客', 'uav': '巡检无人机', 'crusher': '破碎机系统' }
+  return map[type] || type
+}
+const getAssetColor = (type) => {
+  const map = { 'excavator': 'bg-green', 'truck': 'bg-blue', 'uav': 'bg-orange', 'crusher': 'bg-cyan' }
+  return map[type] || 'bg-blue'
+}
+const getAlertLevel = (lvl) => {
+  if (lvl === 'danger') return '1'
+  if (lvl === 'warning') return '2'
+  return '3'
+}
+const formatLevelName = (lvl) => {
+  const map = { 'danger': '一级\n极危', 'warning': '二级\n异常', 'info': '三级\n提示' }
+  return map[lvl] || '三级'
+}
+const formatDateSimple = (iso) => {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return `${d.getMonth()+1}-${d.getDate()} ${d.getHours()}:${d.getMinutes()}`
 }
 
 // 抓取最新实时流数据并与元数据融合
@@ -567,6 +659,18 @@ const fetchUavStatus = async () => {
     }
   } catch (err) {
     console.error("无人机状态获取失败: ", err)
+  }
+}
+
+// 抓取最新视觉分析结果
+const fetchLatestVision = async () => {
+  try {
+    const res = await axios.get(`${API_AI_BASE}/vision/latest`)
+    if (res.data.status === 'success') {
+      latestVisionResult.value = res.data.data
+    }
+  } catch (err) {
+    console.error("视觉结果获取失败: ", err)
   }
 }
 
@@ -668,6 +772,19 @@ const initCesium = () => {
           destination: Cesium.Cartesian3.fromDegrees(sensor.longitude || 109.840, sensor.latitude || 39.635, 1500),
           duration: 1.5
         });
+
+        // 如果用户点击的是高级设备，可以联动触发 HT 分级展示
+        // 这里模拟逻辑：如果是 1#PSZ 或 2#PSZ 这种关键设备，支持进入微观场景
+        if (sensor.device_id.includes('PSZ') || sensor.device_id.includes('EAGLE')) {
+           // 延迟 1s 进入，等 Cesium 缩放动画完成，体验更好
+           setTimeout(() => {
+             selectedEquipment.value = {
+               id: sensor.device_id,
+               name: sensor.device_id === 'UAV-EAGLE-01' ? '先锋级侦察无人机' : '板喂机系统 (1#PSZ)',
+               type: sensor.device_id.includes('UAV') ? 'UAV' : 'FIXED'
+             };
+           }, 1000);
+        }
       }
     } else {
       // 点击空白处关闭
@@ -761,54 +878,25 @@ onMounted(async () => {
   
   await nextTick()
   // 初始化 ECharts
-  if (chartSeismic.value) {
-    chartSeismicInstance = echarts.init(chartSeismic.value)
-  }
-  if (chartCrack.value) {
-    chartCrackInstance = echarts.init(chartCrack.value)
-  }
-  if (chartRadar.value) {
-    chartRadarInstance = echarts.init(chartRadar.value)
-  }
-  
-  fetchHistoryAndRenderChart('SENSOR-MV-101', 'energy_level', chartSeismicInstance, '微震能量', '#ff003c')
-  fetchHistoryAndRenderChart('SENSOR-DE-001', 'crack_width_mm', chartCrackInstance, '裂缝宽度', '#00f0ff')
-  renderRadarChart()
+  renderNewCharts()
 
   // 引入 Cesium
   initCesium()
 
-  // 定时刷新 (假装是 Websocket)
+  // 定时刷新 (真实连通后端)
   pollingTimer = setInterval(() => {
-    fetchBusinessData()  // 拉取告警记录
-    fetchLatestData()
-    fetchAiAlerts()
-    fetchUavStatus()
-    fetchHistoryAndRenderChart('SENSOR-MV-101', 'energy_level', chartSeismicInstance, '微震能量', '#ff003c')
-    fetchHistoryAndRenderChart('SENSOR-DE-001', 'crack_width_mm', chartCrackInstance, '裂缝宽度', '#00f0ff')
-    renderRadarChart()
-    
-    // 模拟气象和卡车数据的随机波动
-    weatherData.value.wind = (4 + Math.random() * 2).toFixed(1)
-    if (Math.random() > 0.8) weatherData.value.rain = (parseFloat(weatherData.value.rain) + Math.random() * 2).toFixed(1)
-    weatherData.value.pm25 = Math.floor(60 + Math.random() * 20)
-    truckStats.value.dailyTonnage += Math.floor(Math.random() * 50)
-    
-    // 模拟人员违规和网络波动
-    if (Math.random() > 0.95) personnelStatus.value.dangerZone = Math.floor(Math.random() * 3) + 1;
-    else if (Math.random() > 0.7) personnelStatus.value.dangerZone = 0;
-    
-    networkStatus.value.bandwidth = (40 + Math.random() * 20 + (Math.random() > 0.9 ? 35 : 0)).toFixed(1);
-    networkStatus.value.ping = Math.floor(20 + Math.random() * 15 + (Math.random() > 0.9 ? 150 : 0));
-    networkStatus.value.cpuTemp = (55 + Math.random() * 5 + (Math.random() > 0.9 ? 30 : 0)).toFixed(1);
-
+    fetchBusinessData()  // 拉取矿山总览与设备元数据
+    fetchLatestData()    // 拉取传感器实时数据
+    fetchAiAlerts()      // 拉取AI模型研判结果
+    fetchUavStatus()     // 拉取无人机集群状态
+    fetchLatestVision()  // 实时无人机视觉流状态
   }, 2000)
 })
 
 onUnmounted(() => {
   clearInterval(pollingTimer)
-  chartSeismicInstance?.dispose()
-  chartCrackInstance?.dispose()
+  chartCostInstance?.dispose()
+  chartYieldInstance?.dispose()
   if (viewer) {
     viewer.destroy()
   }
@@ -934,10 +1022,40 @@ const toggleFence = () => {
 .dashboard-grid {
   flex: 1;
   display: grid;
-  grid-template-columns: 350px 1fr 400px;
-  gap: 1.5rem;
+  grid-template-columns: 320px 1fr;
+  grid-template-rows: 1fr 240px;
+  grid-template-areas:
+    "left main"
+    "bottom bottom";
+  gap: 10px;
   width: 100%;
-  padding: 15px; /* 留出边距 */
+  height: 100vh;
+  padding: 10px;
+  padding-top: 70px; /* 留出 App header 的高度 */
+  overflow: hidden;
+}
+
+.left-panel {
+  grid-area: left;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* 自定义左面板滚动条 */
+.left-panel::-webkit-scrollbar { width: 4px; }
+.left-panel::-webkit-scrollbar-track { background: transparent; }
+.left-panel::-webkit-scrollbar-thumb { background: rgba(0,240,255,0.3); border-radius: 2px; }
+
+.main-view {
+  grid-area: main;
+  position: relative;
+  overflow: hidden;
+}
+
+.bottom-panel {
+  grid-area: bottom;
+  display: flex;
+  flex-direction: row !important; /* override tech-panel's column */
   overflow: hidden;
 }
 
@@ -985,8 +1103,10 @@ const toggleFence = () => {
 }
 
 .section-body {
-  overflow: hidden;
+  overflow-y: auto;
+  min-height: 0;
 }
+.section-body::-webkit-scrollbar { display: none; }
 
 .sensor-list {
   overflow-y: auto;
@@ -1362,6 +1482,85 @@ const toggleFence = () => {
   transform: translateY(-10px);
 }
 
+/* 无人机实时侦察画面 (新增样式) */
+.uav-vision-feed {
+  position: absolute;
+  bottom: 20px;
+  left: 320px; /* 避开左侧面板 */
+  width: 280px;
+  background: rgba(13, 27, 42, 0.85);
+  border: 1px solid rgba(0, 240, 255, 0.4);
+  border-radius: 8px;
+  overflow: hidden;
+  z-index: 1000;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.feed-header {
+  padding: 8px 12px;
+  background: rgba(0, 240, 255, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid rgba(0, 240, 255, 0.2);
+}
+
+.live-tag {
+  color: #ff003c;
+  font-size: 0.75rem;
+  font-weight: bold;
+  animation: bg-pulse 1.5s infinite;
+}
+
+.feed-title {
+  font-size: 0.85rem;
+  color: #ccd6f6;
+  font-weight: 600;
+}
+
+.feed-body {
+  position: relative;
+  height: 180px;
+}
+
+.vision-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.vision-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 10px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.overlay-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: #8892b0;
+}
+
+.overlay-row strong {
+  font-family: 'Orbitron', sans-serif;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.5s ease-out;
+}
+
+@keyframes slide-up {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
 .custom-scrollbar::-webkit-scrollbar {
   width: 4px;
 }
@@ -1390,29 +1589,83 @@ const toggleFence = () => {
   font-style: italic;
 }
 
-/* 无人机调度台样式 */
+/* 无人机调度台样式 - 联动化重构 */
 .uav-command-center {
   position: absolute;
   bottom: 0px; left: 50%;
   transform: translateX(-50%);
   width: 90%;
-  background: rgba(10, 25, 47, 0.85);
+  background: rgba(10, 25, 47, 0.9);
   border: 1px solid rgba(0, 240, 255, 0.4);
-  backdrop-filter: blur(10px);
-  border-radius: 8px 8px 0 0;
-  padding: 10px 15px; 
-  z-index: 15;
-  box-shadow: 0 -5px 20px rgba(0, 240, 255, 0.15);
-  max-height: 160px; /* 限制高度防止溢出 */
+  backdrop-filter: blur(15px);
+  border-radius: 12px 12px 0 0;
+  padding: 12px 20px; 
+  z-index: 100;
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.5);
+  transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
   overflow: hidden;
 }
 
+.uav-minimized {
+  height: 40px;
+  width: 300px;
+  background: rgba(10, 25, 47, 0.6);
+  border-color: rgba(0, 240, 255, 0.2);
+  cursor: pointer;
+  opacity: 0.7;
+}
+.uav-minimized:hover {
+  opacity: 1;
+  background: rgba(10, 25, 47, 0.8);
+  border-color: rgba(0, 240, 255, 0.8);
+}
+
+.uav-active-mode {
+  height: 180px;
+  width: 90%;
+  border-top-width: 2px;
+  border-color: #00f0ff;
+  box-shadow: 0 -10px 40px rgba(0, 240, 255, 0.2);
+}
+
 .uav-title {
-  margin: 0 0 10px 0;
+  margin: 0;
   font-size: 1rem;
   color: #00f0ff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  padding-bottom: 10px;
   border-bottom: 1px dashed rgba(0, 240, 255, 0.2);
-  padding-bottom: 5px;
+}
+
+.uav-minimized .uav-title {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.mini-status-badge {
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  background: rgba(255, 0, 60, 0.2);
+  color: #ff003c;
+  border: 1px solid #ff003c;
+  border-radius: 4px;
+  margin-left: 10px;
+  animation: breathe 2s infinite;
+}
+.mini-status-badge.inactive {
+  background: rgba(255, 255, 255, 0.05);
+  color: #8892b0;
+  border-color: rgba(255, 255, 255, 0.1);
+  animation: none;
+}
+.uav-toggle-hint { font-size: 0.8rem; color: #8892b0; margin-left: auto;}
+
+@keyframes breathe {
+  0%, 100% { box-shadow: 0 0 5px rgba(255, 0, 60, 0.2); }
+  50% { box-shadow: 0 0 15px rgba(255, 0, 60, 0.6); }
 }
 
 .uav-fleet-list {
@@ -1545,4 +1798,276 @@ const toggleFence = () => {
   transform: translateX(-5px);
   border-left: 4px solid #00f0ff;
 }
+
+/* AI Modal Styles */
+.ai-modal-overlay {
+  position: fixed;
+  top: 0; left: 0; width: 100vw; height: 100vh;
+  background: rgba(0, 5, 15, 0.85);
+  backdrop-filter: blur(8px);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ai-modal-content {
+  width: 800px;
+  max-width: 90%;
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  padding: 0;
+  overflow: hidden;
+  box-shadow: 0 0 50px rgba(0, 240, 255, 0.2);
+}
+.modal-header {
+  padding: 15px 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(0, 240, 255, 0.05);
+}
+.modal-header h3 { margin: 0; font-size: 1.2rem; }
+.modal-body { padding: 25px; }
+.risk-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr;
+  gap: 30px;
+  margin-bottom: 25px;
+}
+.meter-header { display: flex; justify-content: space-between; margin-bottom: 10px; font-weight: bold; }
+.meter-track { height: 12px; background: rgba(255,255,255,0.05); border-radius: 6px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }
+.meter-fill { height: 100%; transition: width 1s ease-out; box-shadow: 0 0 15px currentColor; }
+
+.risk-context p { margin: 8px 0; font-size: 0.95rem; color: #8892b0; }
+.risk-context strong { color: #fff; }
+
+.evidence-section h4 { 
+  margin: 15px 0; 
+  font-size: 1rem; 
+  color: #00f0ff; 
+  border-left: 3px solid #00f0ff; 
+  padding-left: 10px; 
+}
+.evidence-chart-view { height: 350px; width: 100%; }
+
+.modal-footer {
+  padding: 15px 20px;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  background: rgba(255,255,255,0.02);
+}
+
+.animate-zoom-in {
+  animation: zoomIn 0.3s ease-out;
+}
+@keyframes zoomIn {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.3);
+  color: #8892b0;
+}
+.btn-outline:hover {
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+}
+
+/* =======================================================
+   New Dashboard Widget Styles (Left & Bottom Panels)
+   ======================================================= */
+.left-section, .bottom-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.left-section {
+  flex: 0 0 auto;
+}
+
+.left-section .panel-header {
+  padding: 8px 12px;
+  border-bottom: none;
+}
+.left-section .panel-header h2 {
+  font-size: 0.85rem;
+}
+.left-section .section-body {
+  padding: 4px 8px;
+}
+
+.bottom-section {
+  overflow: hidden;
+}
+.bottom-section .panel-header {
+  padding: 6px 12px;
+  border-bottom: 1px solid rgba(0,240,255,0.15);
+}
+.bottom-section .panel-header h2 {
+  font-size: 0.8rem;
+}
+
+.device-summary .ds-row {
+  display: flex;
+  align-items: center;
+  padding: 5px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  margin-bottom: 3px;
+  border-radius: 4px;
+}
+.interactive-item {
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.interactive-item:hover {
+  background: rgba(0, 240, 255, 0.1) !important;
+  transform: translateX(4px);
+  border-left: 2px solid #00f0ff;
+}
+
+.ds-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 15px;
+}
+.ds-icon svg { width: 20px; height: 20px; }
+.ds-info { flex: 1; font-size: 0.85rem; color: #8892b0; }
+.ds-info strong { font-size: 1.1rem; }
+.ds-status { font-size: 0.85rem; font-weight: bold; width: 60px; text-align: right; }
+
+.dynamic-log .log-item {
+  display: flex;
+  gap: 10px;
+  padding: 8px 15px;
+  font-size: 0.8rem;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.log-time { color: #8892b0; font-family: monospace; }
+.log-event { flex: 1; color: #ccd6f6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.alert-list .alert-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 15px;
+  background: rgba(255, 255, 255, 0.03);
+  margin-bottom: 5px;
+  border-radius: 4px;
+}
+.alert-level {
+  width: 45px; height: 45px;
+  display: flex; align-items: center; justify-content: center;
+  text-align: center;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  margin-right: 15px;
+}
+.level-3 { background: rgba(0, 240, 255, 0.2); border: 1px solid #00f0ff; color: #00f0ff; }
+.level-2 { background: rgba(255, 170, 0, 0.2); border: 1px solid #ffaa00; color: #ffaa00; }
+.level-1 { background: rgba(255, 0, 60, 0.2); border: 1px solid #ff003c; color: #ff003c; }
+.alert-content { flex: 1; font-size: 0.8rem; color: #ccd6f6; line-height: 1.4; }
+.alert-time { font-size: 0.7rem; color: #8892b0; }
+
+.cost-panel {
+  padding: 10px;
+}
+.cost-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: #8892b0;
+}
+.cl-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cl-row strong { color: #fff; width: 35px; }
+
+.device-info-panel, .material-quality-panel, .production-panel {
+  padding: 5px 10px;
+  display: flex;
+  flex: 1;
+  align-items: center;
+}
+.device-icon-area {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 70px;
+}
+.device-list { flex: 1; }
+.device-header-row {
+  display: flex; font-size: 0.75rem; color: #8892b0; padding: 4px 8px; border-bottom: 1px dashed rgba(255,255,255,0.1);
+}
+.device-header-row span { flex: 1; text-align: center; }
+.device-header-row .spacer { flex: 1; text-align: left; }
+.device-row {
+  display: flex; align-items: center; padding: 6px 8px; font-size: 0.85rem; color: #ccd6f6; background: rgba(255,255,255,0.02); margin-top: 4px;
+}
+.device-name { flex: 1; display: flex; align-items: center; }
+.device-val { flex: 1; font-family: monospace; text-align: center; font-weight: bold; }
+
+.material-quality-panel { gap: 8px; justify-content: space-around; }
+.m-card {
+  flex: 1;
+  background: rgba(0, 240, 255, 0.05);
+  border: 1px solid rgba(0, 240, 255, 0.2);
+  border-radius: 6px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 8px 5px;
+}
+.m-val { font-size: 1.2rem; font-family: 'Orbitron', monospace; font-weight: bold; margin-bottom: 3px; }
+.m-name { font-size: 0.8rem; color: #ccd6f6; margin-bottom: 5px; }
+.m-range { font-size: 0.65rem; color: #8892b0; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 10px; }
+.m-card.warning-card { background: rgba(255, 170, 0, 0.05); border-color: rgba(255, 170, 0, 0.2); }
+.m-card.danger-card { background: rgba(255, 0, 60, 0.05); border-color: rgba(255, 0, 60, 0.2); }
+
+.production-panel { align-items: center; gap: 10px; }
+.gauge-card { position: relative; flex-shrink: 0; }
+.gauge-text-group { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.gauge-info { text-align: left; background: rgba(0, 240, 255, 0.03); padding: 5px 10px; border-radius: 4px;}
+.g-title { font-size: 0.95rem; font-family: 'Orbitron', sans-serif; font-weight: bold; color: #fff; display: flex; justify-content: space-between; align-items: center;}
+.g-title small { font-family: 'Inter', sans-serif; font-size: 0.7rem; color: #8892b0; font-weight: normal; }
+.g-val { margin: 3px 0; }
+.g-val svg { width: 100%; height: 20px; }
+.g-sub { font-size: 0.65rem; color: #8892b0; text-align: right;}
+
+/* OEE */
+.oee-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 0.8rem; color: #ccd6f6; padding: 4px; border-radius: 4px; transition: background 0.2s; cursor: pointer;}
+.oee-bar-row:hover { background: rgba(0, 240, 255, 0.05); }
+.oee-label { width: 70px; text-align: left; }
+.oee-bar { flex: 1; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; }
+.oee-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease;}
+.oee-val { width: 40px; text-align: right; font-family: 'Orbitron', sans-serif; font-weight: bold;}
+
+/* Chokepoints */
+.chokepoint-row { display: flex; align-items: center; font-size: 0.8rem; padding: 6px 10px; background: rgba(255,255,255,0.02); border-radius: 4px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05);}
+.chokepoint-row.congested { background: rgba(255, 153, 0, 0.05); box-shadow: inset 0 0 0 1px rgba(255, 153, 0, 0.2); }
+.cp-loc { flex: 1.5; color: #fff;}
+.cp-wait { flex: 1; color: #8892b0;}
+.cp-time { flex: 1; text-align: right; color: #8892b0;}
+.cp-wait strong { font-size: 0.95rem; font-family: 'Orbitron', sans-serif;}
+.cp-time strong { font-size: 0.95rem; font-family: 'Orbitron', sans-serif; color: #00f0ff;}
+
+.bg-cyan { background-color: #00f0ff; }
+.bg-blue { background-color: #3a86ff; }
+.bg-green { background-color: #00ff88; }
+.bg-orange { background-color: #ff9900; }
+.color-green { color: #00ff88; }
+.color-orange { color: #ff9900; }
+.text-cyan { color: #00f0ff; }
+.text-blue { color: #3a86ff; }
+.text-orange { color: #ff9900; }
+.text-white { color: #ffffff; }
+.text-green { color: #00ff88; }
 </style>

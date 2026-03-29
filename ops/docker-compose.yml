@@ -68,3 +68,85 @@ services:
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://127.0.0.1:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     restart: always
+
+  # ==========================================================
+  # DomeShield Microservices Architecture
+  # ==========================================================
+
+  # [1] 前端静态资源 (Nginx)
+  frontend_web:
+    build:
+      context: ../frontend_dashboard
+      dockerfile: Dockerfile
+    container_name: msm_frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - api-server
+      - business-api
+    restart: always
+
+  # [2] 数据桥接服务 (MQTT -> InfluxDB/Kafka)
+  data-ingestion:
+    build:
+      context: ..
+      dockerfile: Dockerfile.backend
+    container_name: msm_data_ingestion
+    command: ["python", "backend_service/data_ingestion.py"]
+    depends_on:
+      - emqx
+      - influxdb
+      - kafka
+    restart: always
+
+  # [3] 核心 API 网关 (端口 8000)
+  api-server:
+    build:
+      context: ..
+      dockerfile: Dockerfile.backend
+    container_name: msm_api_server
+    command: ["uvicorn", "backend_service.api_server:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "8000:8000"
+    depends_on:
+      - data-ingestion
+    restart: always
+
+  # [4] 业务权限与后台管理 API (端口 8002)
+  business-api:
+    build:
+      context: ..
+      dockerfile: Dockerfile.backend
+    container_name: msm_business_api
+    command: ["uvicorn", "backend_service.business_api:app", "--host", "0.0.0.0", "--port", "8002"]
+    ports:
+      - "8002:8002"
+    depends_on:
+      - mysql
+    volumes:
+      - ../backend_service/mining.db:/app/backend_service/mining.db  # 挂载本地 SQLite 方便不丢数据
+    restart: always
+
+  # [5] 时序 AI 推理节点 (端口 8001)
+  ai-ts-engine:
+    build:
+      context: ..
+      dockerfile: Dockerfile.backend
+    container_name: msm_ai_ts
+    command: ["python", "backend_service/ai_prediction_engine.py"]
+    ports:
+      - "8001:8001"
+    restart: always
+
+  # [6] 视觉 AI 边缘推理节点 (端口 8003)
+  ai-vision-engine:
+    build:
+      context: ..
+      dockerfile: Dockerfile.backend
+    container_name: msm_ai_vision
+    command: ["python", "ai_core/vision_inference_service.py"]
+    ports:
+      - "8003:8003"
+    volumes:
+      - ../ai_core/results:/app/ai_core/results  # CV 测试结果需导出
+    restart: always

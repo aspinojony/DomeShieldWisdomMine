@@ -7,19 +7,19 @@
       </div>
       <nav class="admin-nav">
         <router-link to="/admin/devices" class="nav-item">
-          <span class="icon">💻</span> 设备台账
+          <span class="icon"></span> 设备台账
         </router-link>
         <router-link to="/admin/rules" class="nav-item">
-          <span class="icon">📐</span> 告警规则
+          <span class="icon"></span> 告警规则
         </router-link>
         <router-link to="/admin/records" class="nav-item">
-          <span class="icon">🚨</span> 告警事件
+          <span class="icon"></span> 告警事件
         </router-link>
         <router-link to="/admin/uav" class="nav-item">
-          <span class="icon">🛰️</span> UAV指控集群
+          <span class="icon"></span> UAV指控集群
         </router-link>
         <router-link to="/admin/users" class="nav-item" v-if="authState.isAdmin">
-          <span class="icon">👥</span> 用户管理
+          <span class="icon"></span> 用户管理
         </router-link>
       </nav>
     </aside>
@@ -41,8 +41,11 @@ import { authState } from '../auth'
 .admin-layout {
   display: flex;
   width: 100%;
-  height: 100%;
-  gap: 20px;
+  height: 100vh;
+  padding-top: 65px; /* 避开 App.vue header */
+  padding: 65px 10px 10px 10px;
+  gap: 12px;
+  box-sizing: border-box;
 }
 
 .admin-sidebar {

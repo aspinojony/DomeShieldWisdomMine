@@ -1,20 +1,52 @@
 <template>
   <div class="app-container" v-if="authState.isLoggedIn">
-    <header class="header">
-      <div class="logo-area">
-        <h1 class="glowing-text">穹盾智矿</h1>
-        <span class="subtitle">露井联采空天地一体化智能预警中枢</span>
+    <header class="cyber-header">
+      <div class="header-left">
+        <div class="title-bg"></div>
+        <h1 class="glowing-text cyber-title">数字孪生矿山</h1>
       </div>
+      
+      <div class="header-center">
+        <nav class="top-nav">
+          <button 
+            class="nav-btn" 
+            :class="{ active: route.path === '/' }" 
+            @click="router.push('/')"
+          >
+            <span>矿山总览</span>
+          </button>
+          <button 
+            class="nav-btn" 
+            :class="{ active: route.path === '/production' }" 
+            @click="router.push('/production')"
+          >
+            <span>生产运营</span>
+          </button>
+          <button 
+            class="nav-btn" 
+            :class="{ active: route.path === '/intelligence' }" 
+            @click="router.push('/intelligence')"
+          >
+            <span>智能识别</span>
+          </button>
+          <button 
+            class="nav-btn" 
+            :class="{ active: route.path === '/video' }" 
+            @click="router.push('/video')"
+          >
+            <span>视频监控</span>
+          </button>
+        </nav>
+      </div>
+
       <div class="header-right">
         <div class="time-panel glowing-text">
           {{ currentTime }}
         </div>
         <div class="user-panel">
           <button v-if="authState.isEngineer" class="admin-btn" @click="toggleAdmin">
-            <span class="icon">{{ isAdminPage ? '📊' : '⚙️' }}</span>
             {{ isAdminPage ? '返回大屏' : '管理中心' }}
           </button>
-          <span class="divider" v-if="authState.isEngineer"></span>
           <span class="user-role-badge">{{ roleLabel }}</span>
           <span class="user-name">{{ authState.user?.full_name || authState.user?.username }}</span>
           <button class="logout-btn" @click="handleLogout">退出</button>
@@ -22,6 +54,7 @@
       </div>
     </header>
     
+    <!-- 全屏显示主视图 -->
     <main class="main-content">
       <router-view />
     </main>
@@ -65,7 +98,8 @@ onMounted(() => {
   timer = setInterval(() => {
     const now = new Date()
     currentTime.value = now.toLocaleTimeString('zh-CN', { hour12: false }) 
-                        + ' ' + now.toLocaleDateString('zh-CN')
+                        + ' ' + now.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '.')
+                        + ' 星期' + '日一二三四五六'.charAt(now.getDay())
   }, 1000)
 })
 
@@ -76,80 +110,109 @@ onUnmounted(() => {
 
 <style scoped>
 .app-container {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  padding: 1rem;
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  overflow: hidden;
 }
 
-.header {
+.cyber-header {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 60px;
+  z-index: 1000;
+  pointer-events: none; /* 让地图允许点击 */
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
+  background: linear-gradient(180deg, rgba(0, 16, 30, 0.9) 0%, rgba(0, 16, 30, 0) 100%);
+}
+
+.cyber-header > * {
+  pointer-events: auto; /* 子元素可点击 */
+}
+
+.header-left {
+  width: 320px;
+  height: 50px;
+  display: flex;
   align-items: center;
-  margin-bottom: 2rem;
-  padding: 1rem 2rem;
-  background: linear-gradient(90deg, transparent, rgba(0, 240, 255, 0.1), transparent);
-  border-bottom: 1px solid var(--border-neon);
-  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+  padding-left: 20px;
+  background: linear-gradient(90deg, rgba(0, 240, 255, 0.25) 0%, transparent 100%);
+  clip-path: polygon(0 0, 100% 0, 90% 100%, 0 100%);
+  border-bottom: 2px solid var(--primary-color);
+  position: relative;
 }
 
-.logo-area h1 {
-  font-size: 2rem;
-  font-weight: 700;
-  letter-spacing: 2px;
+.cyber-title {
+  font-size: 1.6rem;
+  font-weight: bold;
+  letter-spacing: 4px;
+  margin: 0;
+  color: #fff;
+  text-shadow: 0 0 15px rgba(0, 240, 255, 0.8), 2px 2px 4px rgba(0, 0, 0, 0.8);
 }
 
-.subtitle {
-  font-size: 0.9rem;
-  color: var(--text-muted);
-  letter-spacing: 1px;
+.header-center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  padding-top: 10px;
+}
+
+.top-nav {
+  display: flex;
+  gap: 15px;
+}
+
+.nav-btn {
+  background: rgba(0, 240, 255, 0.05);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  color: #fff;
+  padding: 8px 22px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  font-weight: bold;
+  cursor: pointer;
+  transform: skewX(-25deg);
+  transition: all 0.3s;
+  position: relative;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.nav-btn span {
+  display: block;
+  transform: skewX(25deg); /* 文字扳正 */
+}
+
+.nav-btn.active, .nav-btn:hover {
+  background: rgba(0, 240, 255, 0.2);
+  box-shadow: 0 0 15px rgba(0, 240, 255, 0.4) inset;
+  color: var(--primary-color);
+  border-color: var(--primary-color);
 }
 
 .header-right {
   display: flex;
   align-items: center;
-  gap: 20px;
+  justify-content: flex-end;
+  gap: 15px;
+  height: 50px;
+  padding-right: 20px;
+  padding-top: 10px;
 }
 
 .time-panel {
-  font-size: 1.2rem;
-  letter-spacing: 2px;
+  font-size: 1.1rem;
+  font-family: 'Orbitron', monospace;
+  letter-spacing: 1px;
 }
 
 .user-panel {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 14px;
-  background: rgba(0, 240, 255, 0.05);
-  border: 1px solid rgba(0, 240, 255, 0.15);
-  border-radius: 8px;
-}
-
-.admin-btn {
-  background: transparent;
-  border: 1px solid rgba(0, 240, 255, 0.3);
-  color: #00f0ff;
-  padding: 4px 10px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.8rem;
-  font-family: inherit;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.admin-btn:hover {
-  background: rgba(0, 240, 255, 0.1);
-  box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
-}
-
-.divider {
-  width: 1px;
-  height: 16px;
-  background: rgba(0, 240, 255, 0.3);
-  margin: 0 4px;
+  margin-left: 10px;
 }
 
 .user-role-badge {
@@ -158,33 +221,35 @@ onUnmounted(() => {
   border-radius: 4px;
   background: rgba(0, 240, 255, 0.15);
   color: #00f0ff;
-  font-weight: 600;
 }
 
 .user-name {
   color: #ccd6f6;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
 }
 
-.logout-btn {
-  background: rgba(255, 60, 60, 0.15);
-  border: 1px solid rgba(255, 60, 60, 0.3);
-  color: #ff6b6b;
-  padding: 4px 12px;
+.admin-btn, .logout-btn {
+  background: transparent;
+  border: 1px solid rgba(0, 240, 255, 0.4);
+  color: #00f0ff;
+  padding: 3px 8px;
   border-radius: 4px;
   cursor: pointer;
   font-size: 0.8rem;
-  font-family: inherit;
   transition: all 0.2s;
 }
-.logout-btn:hover {
-  background: rgba(255, 60, 60, 0.3);
-  box-shadow: 0 0 10px rgba(255, 60, 60, 0.2);
+
+.logout-btn {
+  border-color: rgba(255, 60, 60, 0.4);
+  color: #ff6b6b;
 }
 
+.admin-btn:hover { background: rgba(0, 240, 255, 0.2); }
+.logout-btn:hover { background: rgba(255, 60, 60, 0.3); }
+
 .main-content {
-  flex: 1;
-  display: flex;
-  overflow: hidden;
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 1; /* 底层显示，地图铺满 */
 }
 </style>

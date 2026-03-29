@@ -1,0 +1,43 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# Node
+node_modules/
+.npm/
+
+# Build outputs
+frontend_dashboard/dist/
+
+# Logs
+*.log
+frontend_dashboard/frontend.log
+backend.log
+backend_service/ai_engine.log
+
+# Runtime data / local DBs
+*.db
+*.sqlite
+*.sqlite3
+backend_service/mining.db
+backend_service/mining_system.db
+results/
+ai_core/results/
+
+# Env files
+.env
+.env.*
+!.env.example
+
+# OS / editor
+.vscode/
+.idea/

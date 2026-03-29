@@ -3,7 +3,7 @@
     <div class="panel-header">
       <h2 class="title">告警规则设置</h2>
       <button class="btn btn-primary" @click="openAddModal">
-        <span class="icon">➕</span> 新增规则
+        <span class="icon"></span> 新增规则
       </button>
     </div>
 
@@ -41,7 +41,7 @@
               </span>
             </td>
             <td class="action-col">
-              <button class="btn-icon btn-delete" title="删除" @click="deleteRule(rule.id)" v-if="authState.isAdmin">🗑️</button>
+              <button class="btn-icon btn-delete" title="删除" @click="deleteRule(rule.id)" v-if="authState.isAdmin"></button>
             </td>
           </tr>
           <tr v-if="rules.length === 0">
@@ -120,7 +120,7 @@ import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import { authState } from '../../auth'
 
-const API_BIZ_BASE = 'http://127.0.0.1:8002/api/v1'
+const API_BIZ_BASE = `http://${window.location.hostname}:8002/api/v1`
 const rules = ref([])
 const devices = ref([])
 
@@ -140,7 +140,9 @@ const form = ref({
 
 const fetchRules = async () => {
   try {
-    const res = await axios.get(`${API_BIZ_BASE}/alert-rules`)
+    const res = await axios.get(`${API_BIZ_BASE}/alert-rules`, {
+      headers: { Authorization: `Bearer ${authState.token}` }
+    })
     rules.value = res.data
   } catch (error) {
     console.error('获取规则列表失败:', error)
@@ -149,7 +151,9 @@ const fetchRules = async () => {
 
 const fetchDevices = async () => {
   try {
-    const res = await axios.get(`${API_BIZ_BASE}/devices`)
+    const res = await axios.get(`${API_BIZ_BASE}/devices`, {
+      headers: { Authorization: `Bearer ${authState.token}` }
+    })
     devices.value = res.data
   } catch (error) {
     console.error('获取设备列表失败:', error)
@@ -183,7 +187,9 @@ const submitForm = async () => {
   errorMsg.value = ''
   isSaving.value = true
   try {
-    await axios.post(`${API_BIZ_BASE}/alert-rules`, form.value)
+    await axios.post(`${API_BIZ_BASE}/alert-rules`, form.value, {
+      headers: { Authorization: `Bearer ${authState.token}` }
+    })
     closeModal()
     fetchRules()
   } catch (error) {
@@ -196,7 +202,9 @@ const submitForm = async () => {
 const deleteRule = async (ruleId) => {
   if (!confirm(`确定要删除规则 ID ${ruleId} 吗？此操作不可恢复。`)) return
   try {
-    await axios.delete(`${API_BIZ_BASE}/alert-rules/${ruleId}`)
+    await axios.delete(`${API_BIZ_BASE}/alert-rules/${ruleId}`, {
+      headers: { Authorization: `Bearer ${authState.token}` }
+    })
     fetchRules()
   } catch (error) {
     alert(error.response?.data?.detail || '删除失败，请重试')

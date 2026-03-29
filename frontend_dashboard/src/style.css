@@ -1,11 +1,13 @@
 :root {
   --primary-color: #00f0ff;
-  --secondary-color: #ff003c;
-  --bg-dark: #070b19;
-  --bg-panel: rgba(10, 25, 47, 0.85);
+  --secondary-color: #ff9f00;
+  --bg-dark: #0b0e14;
+  --bg-panel: rgba(11, 14, 20, 0.7);
   --text-main: #e6f1ff;
   --text-muted: #8892b0;
-  --border-neon: rgba(0, 240, 255, 0.3);
+  --border-neon: rgba(0, 240, 255, 0.4);
+  --danger-color: #ff003c;
+  --panel-border: rgba(0, 240, 255, 0.25);
 }
 
 * {
@@ -15,94 +17,112 @@
 }
 
 body {
-  font-family:
-    "Noto Sans SC",
-    "Orbitron",
-    -apple-system,
-    sans-serif;
+  font-family: "Noto Sans SC", "Orbitron", -apple-system, sans-serif;
   background-color: var(--bg-dark);
-  background-image:
-    radial-gradient(
-      circle at 50% 0%,
-      rgba(0, 240, 255, 0.1) 0%,
-      transparent 50%
-    ),
-    linear-gradient(rgba(7, 11, 25, 0.9) 100%, transparent);
+  background-image: 
+    radial-gradient(circle at 50% 50%, rgba(0, 24, 50, 0.8) 0%, var(--bg-dark) 100%);
   color: var(--text-main);
   min-height: 100vh;
   overflow: hidden;
 }
 
-/* 科技感大屏边框样式 */
+/* 带有切角的科技感面板 */
 .tech-panel {
   background: var(--bg-panel);
-  border: 1px solid var(--border-neon);
-  box-shadow:
-    0 0 15px rgba(0, 240, 255, 0.05) inset,
-    0 8px 32px 0 rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(10px);
-  border-radius: 8px;
   position: relative;
+  backdrop-filter: blur(10px);
+  pointer-events: auto;
+  clip-path: polygon(
+    0 10px, 
+    10px 0, 
+    100% 0, 
+    100% calc(100% - 10px), 
+    calc(100% - 10px) 100%, 
+    0 100%
+  );
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
 }
 
+/* 底部面板特殊处理：更小的切角，水平方向 */
+.bottom-panel.tech-panel {
+  clip-path: polygon(
+    0 6px, 6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%
+  );
+  padding: 4px;
+}
+
+/* 伪装的边框，使用多层渐变+内推来实现带切角的边框线 */
 .tech-panel::before {
   content: "";
   position: absolute;
-  top: -1px;
-  left: -1px;
-  width: 20px;
-  height: 2px;
+  top: 0; left: 0; right: 0; bottom: 0;
   background: var(--primary-color);
-  box-shadow: 0 0 10px var(--primary-color);
+  clip-path: polygon(
+    0 10px, 10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%
+  );
+  z-index: -2;
+  opacity: 0.3;
 }
 .tech-panel::after {
   content: "";
   position: absolute;
-  bottom: -1px;
-  right: -1px;
-  width: 20px;
+  top: 1px; left: 1px; right: 1px; bottom: 1px;
+  background: var(--bg-panel);
+  clip-path: polygon(
+    0 9px, 9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%
+  );
+  z-index: -1;
+}
+.bottom-panel.tech-panel::before {
+  clip-path: polygon(0 6px, 6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%);
+}
+.bottom-panel.tech-panel::after {
+  clip-path: polygon(0 5px, 5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%);
+}
+
+/* 顶部装饰高亮条 */
+.tech-panel-header-line {
+  position: absolute;
+  top: 0; left: 15px; width: 60%;
   height: 2px;
   background: var(--primary-color);
   box-shadow: 0 0 10px var(--primary-color);
 }
 
 .glowing-text {
-  text-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+  text-shadow: 0 0 10px rgba(0, 240, 255, 0.6);
   color: var(--primary-color);
   font-family: "Orbitron", sans-serif;
+  letter-spacing: 1px;
 }
 
-/* 装饰性动效元素 */
+.title-deco {
+  display: inline-block;
+  width: 4px;
+  height: 14px;
+  background: var(--primary-color);
+  margin-right: 8px;
+  box-shadow: 0 0 8px var(--primary-color);
+  transform: skewX(-20deg);
+}
+
 .scanner-line {
   position: absolute;
   left: 0;
   right: 0;
   height: 2px;
-  background: linear-gradient(
-    to right,
-    transparent,
-    var(--primary-color),
-    transparent
-  );
+  background: linear-gradient(to right, transparent, var(--primary-color), transparent);
   box-shadow: 0 0 10px var(--primary-color);
-  opacity: 0.5;
-  animation: scan 3s linear infinite;
+  opacity: 0.3;
+  animation: scan 4s linear infinite;
   pointer-events: none;
 }
 
 @keyframes scan {
-  0% {
-    top: 0%;
-    opacity: 0;
-  }
-  10% {
-    opacity: 0.5;
-  }
-  90% {
-    opacity: 0.5;
-  }
-  100% {
-    top: 100%;
-    opacity: 0;
-  }
+  0% { top: 0%; opacity: 0; }
+  10% { opacity: 0.5; }
+  90% { opacity: 0.5; }
+  100% { top: 100%; opacity: 0; }
 }

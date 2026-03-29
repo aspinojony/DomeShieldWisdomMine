@@ -4,6 +4,7 @@ import time
 import numpy as np
 import pandas as pd
 import threading
+import requests
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
@@ -67,6 +68,8 @@ except Exception as e:
 # 业务状态字典与逻辑分发
 # ==========================================
 alert_logs = []
+latest_vision_result = None  # 存储最近一次无人机侦察的视觉分析结果
+force_crisis = False  # 手动触发危机模拟的全局开关
 
 uav_fleet = [
     {
@@ -143,20 +146,20 @@ def background_prediction_task():
     while True:
         time.sleep(3)  # 每 3 秒拉取最新实时流切片
 
-        # 为了演示系统，随机触发一段时间的 渐进式塌方前兆
+        # 随机触发 (保留原本的自然触发逻辑)
         if risk_timer == 0 and np.random.rand() < 0.05:
             risk_timer = 20  # 持续恶化 20 次循环
             t = 0
-            print(f"\\n🌍 [预警波形] 地质环境开始异动 (发生轻微滑动)...")
+            print(f"\n🌍 [预警波形] 地质环境开始异动 (发生轻微滑动)...")
 
         if risk_timer > 0:
-            # 模拟逐渐恶化的数据
+            # 模拟逐渐恶化的数据 (加强力度以便触发 85% 门限)
             t_frac = t / 20.0
             new_point = [
-                1.5 + 15.0 * t_frac,  # 裂缝增大
-                15 + 250.0 * (t_frac**2),  # 微震剧烈
-                0.1 + 3.0 * (t_frac**1.5),  # 倾角偏转
-                1.0 + 20.0 * (t_frac**2.5),  # 沉降加速
+                1.5 + 45.0 * t_frac,  # 裂缝
+                15 + 1500.0 * (t_frac**2),  # 微震
+                0.1 + 8.0 * (t_frac**1.5),  # 倾角
+                1.0 + 40.0 * (t_frac**2.5),  # 沉降
             ]
             t += 1
             risk_timer -= 1
@@ -177,11 +180,14 @@ def background_prediction_task():
 
         if prob > 0.2:
             alert_msg = {
+                "id": f"ALERT-{int(time.time()*1000)}",  # 唯一ID用于前端选中
                 "time": time.strftime("%Y-%m-%d %H:%M:%S"),
                 "device": device_id,
                 "probability": round(prob * 100, 2),
                 "level": level,
                 "action": action,
+                # 证据窗口: 转换回常规列表以便 JSON 序列化
+                "evidence": window_array.tolist(),
             }
             alert_logs.insert(0, alert_msg)
             if len(alert_logs) > 50:
@@ -200,6 +206,28 @@ def trigger_uav_dispatch(target_zone):
             print(
                 f"🚁 [调度中心] 自动工单生成！调派 {drone['id']} 飞往 {target_zone} 执行侦察。"
             )
+
+            # --- 联动 8002: 创建工单 ---
+            try:
+                # 模拟登录获取 token (生产环境应使用专用 service account)
+                auth_res = requests.post(
+                    "http://127.0.0.1:8002/api/v1/auth/login",
+                    data={"username": "admin", "password": "admin123"},
+                )
+                token = auth_res.json().get("access_token")
+
+                requests.post(
+                    "http://127.0.0.1:8002/api/v1/uav/missions",
+                    json={
+                        "device_id": "UAV-DJI-001",
+                        "mission_name": f"AI 自动触发: {target_zone} 风险核查",
+                        "waypoints": '[{"lat": 39.63, "lng": 109.84}]',
+                    },
+                    headers={"Authorization": f"Bearer {token}"},
+                )
+            except Exception as e:
+                print(f"⚠️ [联动] 无法连接业务后台创建工单: {e}")
+
             threading.Thread(
                 target=simulate_drone_flight, args=(drone,), daemon=True
             ).start()
@@ -214,6 +242,24 @@ def simulate_drone_flight(drone):
         time.sleep(1)
 
     drone["status"] = "抵近侦察中"
+
+    # --- 联动 8003: 视觉确认 ---
+    global latest_vision_result
+    print(f"📸 [AI 中心] {drone['id']} 正在回传现场高清图，送交视觉智脑 (8003) 研判...")
+    try:
+        # 使用之前生成的裂缝测试图作为模拟输入
+        test_img_path = "/Users/a0000/.gemini/antigravity/brain/c8a46def-1b7c-4db9-b9d8-ee14848f1945/mine_crack_sample_jpg_1772627212841.png"
+        with open(test_img_path, "rb") as f:
+            res = requests.post(
+                "http://127.0.0.1:8003/api/v1/vision/analyze_crack", files={"file": f}
+            )
+            latest_vision_result = res.json()
+            print(
+                f"🔍 [视觉结果] 研判级别: {latest_vision_result.get('data', {}).get('alert_level')}"
+            )
+    except Exception as e:
+        print(f"⚠️ [视觉] 图片研判请求失败: {e}")
+
     time.sleep(5)
 
     drone["status"] = "返航中"
@@ -252,6 +298,39 @@ def get_ai_alerts():
 @app.get("/api/v1/drones/status")
 def get_drones_status():
     return {"status": "success", "data": uav_fleet}
+
+
+@app.get("/api/v1/vision/latest")
+def get_latest_vision():
+    """暴露给前端大屏的最近侦察画面"""
+    return {"status": "success", "data": latest_vision_result}
+
+
+@app.post("/api/v1/ai/trigger_crisis")
+def trigger_manual_crisis():
+    """一键触发危机演练：立即启动全链路联动流程 (演示专用)"""
+    global alert_logs
+
+    # 1. 注入一条虚拟的高危预警记录，触发前端大屏红闪和语音播报
+    alert_msg = {
+        "id": f"ALERT-DEMO-{int(time.time()*1000)}",
+        "time": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "device": "SLOPE-ZONE-A",
+        "probability": 98.74,
+        "level": "警报级 (三级)",
+        "action": "🔥 立即派无人机集群核查，发布撤离指令！",
+        "evidence": np.random.rand(60, 4).tolist(),
+    }
+    alert_logs.insert(0, alert_msg)
+
+    # 2. 立即触发无人机调度链路 (包含 8002 派单和 8003 视觉辅助)
+    trigger_uav_dispatch("SLOPE-ZONE-A")
+
+    print("🚨 [演示中心] 手动触发联动成功：高危预警已注入，无人机已起飞。")
+    return {
+        "status": "success",
+        "message": "🚨 联动演示已启动！检测到高危风险，无人机正在紧急起飞执行视觉确认。",
+    }
 
 
 if __name__ == "__main__":

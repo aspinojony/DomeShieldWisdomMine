@@ -3,7 +3,7 @@
     <div class="panel-header">
       <h2 class="title">空天无人机指控集群</h2>
       <button class="btn btn-primary" @click="openMissionModal">
-        <span class="icon">✈️</span> 下发巡检任务
+        <span class="icon"></span> 下发巡检任务
       </button>
     </div>
 
@@ -13,10 +13,10 @@
         <h3>集群一键控制 (Broadcast Command)</h3>
         <p class="desc">向所有在线无人机广播核心飞行指令</p>
         <div class="command-group">
-          <button class="btn-cmd takeoff" @click="sendCommand('ALL', 'takeoff')">🚀 编队起飞 (Takeoff)</button>
-          <button class="btn-cmd hover" @click="sendCommand('ALL', 'hover')">⏸️ 编队悬停 (Hover)</button>
-          <button class="btn-cmd rth" @click="sendCommand('ALL', 'rth')">🏠 返航 (RTH)</button>
-          <button class="btn-cmd land" @click="sendCommand('ALL', 'land')">🛬 降落 (Land)</button>
+          <button class="btn-cmd takeoff" @click="sendCommand('ALL', 'takeoff')"> 编队起飞 (Takeoff)</button>
+          <button class="btn-cmd hover" @click="sendCommand('ALL', 'hover')"> 编队悬停 (Hover)</button>
+          <button class="btn-cmd rth" @click="sendCommand('ALL', 'rth')"> 返航 (RTH)</button>
+          <button class="btn-cmd land" @click="sendCommand('ALL', 'land')"> 降落 (Land)</button>
         </div>
       </div>
 
@@ -94,7 +94,7 @@ import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import { authState } from '../../auth'
 
-const API_BIZ_BASE = 'http://127.0.0.1:8002/api/v1'
+const API_BIZ_BASE = `http://${window.location.hostname}:8002/api/v1`
 
 const missions = ref([])
 const uavDevices = ref([])
@@ -111,7 +111,9 @@ const form = ref({
 
 const fetchMissions = async () => {
   try {
-    const res = await axios.get(`${API_BIZ_BASE}/uav/missions`)
+    const res = await axios.get(`${API_BIZ_BASE}/uav/missions`, {
+      headers: { Authorization: `Bearer ${authState.token}` }
+    })
     missions.value = res.data
   } catch (error) {
     console.error('获取任务列表失败', error)
@@ -120,7 +122,9 @@ const fetchMissions = async () => {
 
 const fetchUavDevices = async () => {
   try {
-    const res = await axios.get(`${API_BIZ_BASE}/devices?device_type=uav`)
+    const res = await axios.get(`${API_BIZ_BASE}/devices?device_type=uav`, {
+      headers: { Authorization: `Bearer ${authState.token}` }
+    })
     uavDevices.value = res.data
   } catch (error) {
     console.error('获取无人机设备失败', error)
@@ -150,7 +154,9 @@ const submitMission = async () => {
   errorMsg.value = ''
   isSaving.value = true
   try {
-    await axios.post(`${API_BIZ_BASE}/uav/missions`, form.value)
+    await axios.post(`${API_BIZ_BASE}/uav/missions`, form.value, {
+      headers: { Authorization: `Bearer ${authState.token}` }
+    })
     closeModal()
     fetchMissions()
     alert('无人机任务已成功下发至队列')
@@ -164,7 +170,9 @@ const submitMission = async () => {
 const sendCommand = async (deviceId, command) => {
   if (!confirm(`确定要向 [${deviceId}] 发送 [${command}] 指令吗？`)) return
   try {
-    await axios.post(`${API_BIZ_BASE}/uav/${deviceId}/command?command=${command}`)
+    await axios.post(`${API_BIZ_BASE}/uav/${deviceId}/command?command=${command}`, {}, {
+      headers: { Authorization: `Bearer ${authState.token}` }
+    })
     alert(`指令 ${command} 发送成功`)
   } catch (error) {
     alert(`发送失败: ${error.response?.data?.detail || error.message}`)

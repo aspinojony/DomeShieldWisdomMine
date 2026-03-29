@@ -6,7 +6,7 @@
     <div class="login-card">
       <!-- Logo 与标题 -->
       <div class="login-header">
-        <div class="logo-icon">🛡️</div>
+        <div class="logo-icon"></div>
         <h1 class="sys-name">穹盾智矿</h1>
         <p class="sys-desc">露井联采空天地一体化智能预警中枢</p>
       </div>
@@ -14,7 +14,7 @@
       <!-- 登录表单 -->
       <form @submit.prevent="handleLogin" class="login-form">
         <div class="input-group" :class="{ focused: userFocused }">
-          <span class="input-icon">👤</span>
+          <span class="input-icon"></span>
           <input
             v-model="username"
             type="text"
@@ -26,7 +26,7 @@
         </div>
 
         <div class="input-group" :class="{ focused: passFocused }">
-          <span class="input-icon">🔑</span>
+          <span class="input-icon"></span>
           <input
             v-model="password"
             :type="showPwd ? 'text' : 'password'"
@@ -36,7 +36,7 @@
             @blur="passFocused = false"
           />
           <span class="pwd-toggle" @click="showPwd = !showPwd">
-            {{ showPwd ? '🙈' : '👁️' }}
+            {{ showPwd ? '' : '' }}
           </span>
         </div>
 

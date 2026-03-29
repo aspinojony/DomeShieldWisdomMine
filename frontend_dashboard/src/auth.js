@@ -5,7 +5,7 @@
 import { reactive } from 'vue'
 import axios from 'axios'
 
-const API_BIZ_BASE = 'http://127.0.0.1:8002/api/v1'
+const API_BIZ_BASE = `http://${window.location.hostname}:8002/api/v1`
 
 // 全局认证状态
 export const authState = reactive({

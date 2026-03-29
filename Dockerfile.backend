@@ -1,0 +1,27 @@
+# 穹盾智矿 - 后端混合部署专属镜像栈 (API + AI)
+# 采用相对轻量但功能齐全的 Debian 版本以兼容 PyTorch & OpenCV 构建
+FROM python:3.10-slim-bullseye
+
+WORKDIR /app
+
+# 安装必要的系统底层依赖 (OpenCV 等 C++ 库所需)
+RUN apt-get update && apt-get install -y \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    gcc \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# 包括 FastAPI全家桶, 物联网模块, 数据库 ORM, 全套 AI 库
+RUN pip install --no-cache-dir fastapi uvicorn sqlalchemy paho-mqtt influxdb-client kafka-python "python-jose[cryptography]" passlib bcrypt pandas numpy scikit-learn python-multipart \
+    && pip install --no-cache-dir torch torchvision torchaudio ultralytics requests
+
+# 拷贝后端和 AI 服务代码（这样 ai_prediction_engine 等才能跨文件夹互相引用）
+COPY backend_service /app/backend_service
+COPY ai_core /app/ai_core
+
+# 确保 Python 可以搜索到 AI 模型根目录 (对应原有的 sys.path.append(".."))
+ENV PYTHONPATH="/app"
+
+# 默认指令为空保护，由 docker-compose 分配微服务挂载点
+CMD ["echo", "Please define a command in docker-compose.yml"]

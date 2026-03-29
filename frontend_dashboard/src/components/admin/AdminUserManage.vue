@@ -3,7 +3,7 @@
     <div class="panel-header">
       <h2 class="title">用户权限管理</h2>
       <button class="btn btn-primary" @click="openAddModal">
-        <span class="icon">👤</span> 添加新用户
+        <span class="icon"></span> 添加新用户
       </button>
     </div>
 
@@ -20,7 +20,7 @@
           </tr>
         </thead>
         <tbody>
-          <!-- 演示数据，后台因为目前没有提供查询所有 /users 接口，这里我们做一个前端mock和拦截演示注册 -->
+          <!-- 用户数据 -->
           <tr v-for="user in users" :key="user.id">
             <td>{{ user.id }}</td>
             <td class="username-col">{{ user.username }}</td>
@@ -81,7 +81,7 @@ import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import { authState } from '../../auth'
 
-const API_BIZ_BASE = 'http://127.0.0.1:8002/api/v1'
+const API_BIZ_BASE = `http://${window.location.hostname}:8002/api/v1`
 
 const roleMap = {
   admin: '系统管理员',
@@ -89,11 +89,29 @@ const roleMap = {
   viewer: '观察员'
 }
 
-// 因为后端未实现 GET /users，我们填充一些伪装的数据供展示
-const users = ref([
-  { id: 1, username: 'admin', full_name: '系统超级管理员', role: 'admin', created_at: '2023-01-01 08:00:00' },
-  { id: 2, username: 'test_eng', full_name: '测试工程师', role: 'engineer', created_at: '2023-10-15 14:30:22' },
-])
+const users = ref([])
+
+const fetchUsers = async () => {
+  try {
+    const res = await axios.get(`${API_BIZ_BASE}/users`, {
+      headers: { Authorization: `Bearer ${authState.token}` }
+    })
+    users.value = res.data.map(u => ({
+      ...u,
+      created_at: u.created_at ? new Date(u.created_at).toLocaleString('zh-CN', { hour12: false }) : '-'
+    }))
+  } catch (error) {
+    if (error.response?.status === 403) {
+      errorMsg.value = '您没有权限查看用户列表'
+    } else {
+      errorMsg.value = '获取用户列表失败: ' + (error.response?.data?.detail || error.message)
+    }
+  }
+}
+
+onMounted(() => {
+  fetchUsers()
+})
 
 const showModal = ref(false)
 const isSaving = ref(false)
@@ -129,17 +147,11 @@ const submitForm = async () => {
   successMsg.value = ''
   isSaving.value = true
   try {
-    // 调用实际后端的注册接口
-    await axios.post(`${API_BIZ_BASE}/auth/register`, form.value)
-    successMsg.value = `用户 ${form.value.username} 注册成功！`
-    // Mock update list
-    users.value.push({
-      id: Math.floor(Math.random() * 1000) + 10,
-      username: form.value.username,
-      full_name: form.value.full_name,
-      role: form.value.role,
-      created_at: new Date().toLocaleString('zh-CN', { hour12: false })
+    await axios.post(`${API_BIZ_BASE}/auth/register`, form.value, {
+      headers: { Authorization: `Bearer ${authState.token}` }
     })
+    successMsg.value = `用户 ${form.value.username} 注册成功！`
+    fetchUsers()
     form.value.password = '' // clear password
   } catch (error) {
     errorMsg.value = error.response?.data?.detail || '注册失败，可能用户名已存在'

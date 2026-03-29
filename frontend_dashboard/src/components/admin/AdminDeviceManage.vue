@@ -3,7 +3,7 @@
     <div class="panel-header">
       <h2 class="title">设备台账管理</h2>
       <button class="btn btn-primary" @click="openAddModal">
-        <span class="icon">➕</span> 注册新设备
+        <span class="icon"></span> 注册新设备
       </button>
     </div>
 
@@ -33,8 +33,8 @@
             </td>
             <td class="time-col">{{ formatDate(dev.created_at) }}</td>
             <td class="action-col">
-              <button class="btn-icon btn-edit" title="编辑" @click="openEditModal(dev)">✏️</button>
-              <button class="btn-icon btn-delete" title="删除" @click="deleteDevice(dev.device_id)" v-if="authState.isAdmin">🗑️</button>
+              <button class="btn-icon btn-edit" title="编辑" @click="openEditModal(dev)"></button>
+              <button class="btn-icon btn-delete" title="删除" @click="deleteDevice(dev.device_id)" v-if="authState.isAdmin"></button>
             </td>
           </tr>
           <tr v-if="devices.length === 0">
@@ -113,7 +113,7 @@ import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import { authState } from '../../auth'
 
-const API_BIZ_BASE = 'http://127.0.0.1:8002/api/v1'
+const API_BIZ_BASE = `http://${window.location.hostname}:8002/api/v1`
 const devices = ref([])
 
 // 模态框状态
@@ -134,7 +134,9 @@ const form = ref({
 
 const fetchDevices = async () => {
   try {
-    const res = await axios.get(`${API_BIZ_BASE}/devices`)
+    const res = await axios.get(`${API_BIZ_BASE}/devices`, {
+      headers: { Authorization: `Bearer ${authState.token}` }
+    })
     devices.value = res.data
   } catch (error) {
     console.error('获取设备列表失败:', error)
@@ -185,9 +187,13 @@ const submitForm = async () => {
         latitude: form.value.latitude,
         status: form.value.status
       }
-      await axios.put(`${API_BIZ_BASE}/devices/${form.value.device_id}`, updateData)
+      await axios.put(`${API_BIZ_BASE}/devices/${form.value.device_id}`, updateData, {
+        headers: { Authorization: `Bearer ${authState.token}` }
+      })
     } else {
-      await axios.post(`${API_BIZ_BASE}/devices`, form.value)
+      await axios.post(`${API_BIZ_BASE}/devices`, form.value, {
+        headers: { Authorization: `Bearer ${authState.token}` }
+      })
     }
     closeModal()
     fetchDevices() // 刷新列表
@@ -201,7 +207,9 @@ const submitForm = async () => {
 const deleteDevice = async (deviceId) => {
   if (!confirm(`确定要删除设备 ${deviceId} 吗？此操作不可恢复。`)) return
   try {
-    await axios.delete(`${API_BIZ_BASE}/devices/${deviceId}`)
+    await axios.delete(`${API_BIZ_BASE}/devices/${deviceId}`, {
+      headers: { Authorization: `Bearer ${authState.token}` }
+    })
     fetchDevices()
   } catch (error) {
     alert(error.response?.data?.detail || '删除失败，请重试')

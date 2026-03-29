@@ -4,7 +4,7 @@
       <h2 class="title">业务告警处理</h2>
       <div class="header-actions">
         <button class="btn btn-secondary" @click="fetchAlerts">
-          <span class="icon">🔄</span> 刷新流水
+          <span class="icon"></span> 刷新流水
         </button>
       </div>
     </div>
@@ -50,7 +50,7 @@
                 title="确认处理此告警" 
                 v-if="!alert.is_acknowledged"
                 @click="ackAlert(alert.id)">
-                ✅
+                
               </button>
               <span class="done-text" v-else>已闭环</span>
             </td>
@@ -69,12 +69,14 @@ import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import { authState } from '../../auth'
 
-const API_BIZ_BASE = 'http://127.0.0.1:8002/api/v1'
+const API_BIZ_BASE = `http://${window.location.hostname}:8002/api/v1`
 const alerts = ref([])
 
 const fetchAlerts = async () => {
   try {
-    const res = await axios.get(`${API_BIZ_BASE}/alert-records?limit=100`)
+    const res = await axios.get(`${API_BIZ_BASE}/alert-records?limit=100`, {
+      headers: { Authorization: `Bearer ${authState.token}` }
+    })
     alerts.value = res.data
   } catch (error) {
     console.error('获取告警流水失败:', error)
@@ -83,7 +85,9 @@ const fetchAlerts = async () => {
 
 const ackAlert = async (alertId) => {
   try {
-    await axios.put(`${API_BIZ_BASE}/alert-records/${alertId}/ack`)
+    await axios.put(`${API_BIZ_BASE}/alert-records/${alertId}/ack`, {}, {
+      headers: { Authorization: `Bearer ${authState.token}` }
+    })
     // update locally without refetching the whole list if we want, or just refetch
     fetchAlerts()
   } catch (error) {

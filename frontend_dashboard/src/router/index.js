@@ -19,6 +19,24 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/production',
+    name: 'Production',
+    component: () => import('../components/operations/OperationsDashboard.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/intelligence',
+    name: 'Intelligence',
+    component: () => import('../components/IntelligentDetection.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/video',
+    name: 'Video',
+    component: () => import('../components/VideoMonitoring.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/admin',
     name: 'Admin',
     component: () => import('../components/AdminPanel.vue'),
