@@ -1,98 +1,196 @@
-# 穹盾智矿 (DomeShield Wisdom Mine)
+# 穹盾智矿 · DomeShield Wisdom Mine
 
-> 露井联采空天地一体化智能预警中枢
->
-> Sky-Earth Integrated Intelligent Warning Center for Open-Pit and Underground Mining
+> 露天矿 / 地下矿空天地一体化智能预警与生产调度演示系统
 
-本项目是一个全面、智能、基于现代 Web 体系构建的矿山安全监控与预警数字孪生中枢系统。它通过整合多源传感器数据（GNSS、微震仪、表面裂缝计、深井应力计、无人机巡检等），配合 AI 预测与识别模型，为露井联合开采提供一体化的数字大屏监控及后台业务管理能力。
-
-## 🎯 系统核心特性 (Features)
-
-- 💻 **WebGL 3D 数字孪生引擎**：利用 Three.js 实现露天矿坑程序化生成、动态渲染设备点位（基站、微震监测站、沉降监测站等），全视角漫游与交互。
-- 📊 **数据大屏与实时可视化**：搭载 ECharts，包含双 Y 轴波形图、动态散点图、雷达图、环形仪表盘等。大屏支持暗黑工业科幻风 (Glassmorphism)。
-- 🤖 **AI 预警中枢**：内置 YOLOv8 视觉识别（用于无人机裂缝检测）与 Transformer 时序预测模型引擎（通过 `ai_core` 服务支持）。
-- 📡 **多源异构数据接入**：利用 Kafka 与 MQTT 接入各类边缘端物联网设备，支持 WebSocket 实时推送到大屏层。
-- 🔒 **完善的 RBAC 后台管理**：
-  - **权限架构**：管理员 (Admin)、工程师 (Engineer) 及访问者 (Viewer) 的角色分离体系。
-  - **业务后台 (Admin Panel)**：可对设备台账进行增删改查、配置基于指标 (`metric_field`) 阈值的智能化告警规则、并提供了告警记录的一键闭环（ACK）处理模块。
+穹盾智矿是一个面向矿山安全监测、风险预警、无人机视觉复核与生产运营指挥的综合演示系统。项目把 **传感器监测、AI 时序预警、YOLO 裂缝识别、业务后台、三维大屏** 串成一条完整链路，用于课程项目、竞赛答辩、方案演示和后续工程化扩展。
 
 ---
 
-## 🏗 开源架构设计 (Architecture)
+## 1. 这套系统现在能做什么
 
-项目遵循微服务及模块化理念布局，各目录主要职责如下：
+### 安全监测
+- 接入裂缝计、微震、倾角、沉降等监测数据
+- 支持实时态势展示与历史趋势查看
+- 支持告警规则配置、告警记录查询、人工 ACK 闭环
+
+### AI 预警
+- 通过时序模型模拟矿山风险演化过程
+- 在演示模式下自动生成“稳定 → 先兆 → 预警 → 调度 → 恢复”的场景周期
+- 高风险时可触发无人机复核链路
+
+### 无人机视觉识别
+- 提供 YOLOv8 裂缝识别服务
+- 支持上传图片进行裂缝检测
+- 输出识别框、异常数量、最大裂缝宽度、告警等级、结果图
+- 保存历史识别记录，供前端查看
+
+### 业务与调度
+- 用户登录与 RBAC 权限控制
+- 设备台账管理
+- 告警规则管理
+- 任务/工单/无人机任务等业务能力
+- 生产运营页面与首页联动展示
+
+### 前端展示
+- 首页矿山大屏：地图、态势、告警、无人机视觉联测、KPI 总览
+- 智能识别页：视觉结果查看、历史识别记录、人工上传分析
+- 生产运营页：面向调度与处置的业务化工作台
+
+---
+
+## 2. 当前技术架构
 
 ```text
-├── frontend_dashboard/     # 前端数据大屏与后台管理中心 (Vue 3 + Vite + ECharts + Three.js)
-├── backend_service/        # 后端核心 API 与业务逻辑 (FastAPI + SQLAlchemy + WebSocket)
-├── ai_core/                # 核心 AI 模型与推理模块 (PyTorch + YOLOv8 + Timeseries Transformer)
-├── mock_devices/           # 硬件端数据模拟与压力测试 (MQTT IoT Mocks)
-├── ops/                    # 部署运维与容器编排 (Docker Compose / Nginx)
-└── README.md               # 项目介绍
+frontend_dashboard/   Vue3 + Vite + Axios + ECharts + Cesium
+backend_service/      FastAPI + SQLAlchemy + JWT + SQLite
+ai_core/              YOLOv8 裂缝识别 / 时序模型相关代码
+mock_devices/         设备数据模拟
+ops/                  Docker Compose 部署编排
+scripts/              本地启停/检查脚本
 ```
+
+### 服务划分
+
+| 服务 | 端口 | 说明 |
+|---|---:|---|
+| frontend | 80 / 5173 | 前端页面 |
+| api-server | 8000 | 监测数据 / 演示传感器接口 |
+| ai-engine | 8001 | AI 风险推演 / 无人机联动模拟 |
+| business-api | 8002 | 登录、权限、设备、规则、业务数据 |
+| vision-engine | 8003 | YOLO 裂缝视觉识别 |
 
 ---
 
-## 🚀 快速启动 (Quick Start)
+## 3. 关键能力说明
 
-### 1. 运行后端服务 (Backend Service)
+### 3.1 首页演示链路
+首页已经从“纯动效页面”改成了**动态演示链路**：
+- 传感器数据会随时间变化
+- 矿山总览数据会随场景变化联动
+- 无人机状态会随风险阶段切换
+- 最新视觉结果会从视觉服务实时读取
 
-后端主要基于 Python 3.10+ 环境。
+### 3.2 YOLO 裂缝模型接入
+当前视觉服务支持通过配置或环境变量加载训练权重：
+- 默认配置文件：`ai_core/configs/cv_yolo.yaml`
+- 当前接入权重：`ai_core/checkpoints/crack_yolo_best.pt`
+- 环境变量覆盖：`YOLO_WEIGHTS_PATH`
 
-```bash
-cd backend_service
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+### 3.3 演示模式
+项目包含大量演示兜底逻辑，适合答辩和离线展示：
+- 后端接口在依赖不完整时仍可返回演示数据
+- 首页、AI、视觉、生产运营可在本地独立联调
+- 不依赖真实矿山数据也能跑完整流程
 
-# 启动 FastAPI 服务
-uvicorn main:app --host 127.0.0.1 --port 8002 --reload
-```
+---
 
-后端 API 文档将在 `http://127.0.0.1:8002/docs` 生成。
+## 4. 快速启动
 
-### 2. 运行前端大屏 (Frontend Dashboard)
+## 方式 A：本地开发启动
 
-前端依赖于 Node.js (推荐 v18+)。
-
+### 4.1 前端
 ```bash
 cd frontend_dashboard
 npm install
-
-# 启动本地开发服务器
 npm run dev
 ```
 
-浏览器打开 `http://localhost:5173` 即可查看**穹盾智矿大屏**。
-_默认预置的系统管理员账号: `admin`，密码: `123123`_
+### 4.2 后端与 AI
+请分别准备 Python 环境后启动：
 
-### 3. 数据接入 (Data Ingestion) / AI 核心 (Optional)
+```bash
+# 业务 API
+uvicorn backend_service.business_api:app --host 0.0.0.0 --port 8002
 
-需要完整的流处理（Kafka / MQTT），可以通过 ops 提供的 Docker Compose 快速唤起消息中间件网络：
+# 监测 API
+python backend_service/api_server.py
+
+# AI 风险引擎
+python backend_service/ai_prediction_engine.py
+
+# 视觉引擎
+python ai_core/vision_inference_service.py
+```
+
+### 4.3 本地检查
+```bash
+bash scripts/check.sh
+```
+
+---
+
+## 方式 B：Docker Compose 部署
 
 ```bash
 cd ops
-docker-compose up -d
+DOCKER_BUILDKIT=0 COMPOSE_DOCKER_CLI_BUILD=0 docker compose -f docker-compose.deploy.yml up -d --build
 ```
 
-模拟矿山设备发送数据：
+适用于：
+- 本机演示环境
+- 服务器演示部署
+- 答辩前一次性拉起全部服务
+
+---
+
+## 5. 默认账号
+
+如果业务库为空，系统会自动创建默认管理员：
+
+- 用户名：`admin`
+- 密码：`admin123`
+
+> 实际部署时请务必修改默认口令。
+
+---
+
+## 6. 推荐阅读顺序
+
+如果你第一次接手这个项目，建议按下面顺序看：
+
+1. `README.md` —— 先理解整体结构
+2. `项目文档.md` —— 看详细模块与部署说明
+3. `ops/docker-compose.deploy.yml` —— 看演示部署方式
+4. `frontend_dashboard/src/components/MiningDashboard.vue` —— 看首页主逻辑
+5. `backend_service/business_api.py` —— 看业务主接口
+6. `ai_core/vision_inference_service.py` —— 看视觉识别链路
+
+---
+
+## 7. 当前仓库内的重要文件
+
+| 文件 | 作用 |
+|---|---|
+| `README.md` | 项目总览说明 |
+| `项目文档.md` | 详细技术与部署文档 |
+| `PRODUCTION-OPS-REDESIGN.md` | 生产运营页重构设计说明 |
+| `PRODUCTION-OPS-IMPLEMENTATION.md` | 生产运营页实现设计 |
+| `ops/docker-compose.deploy.yml` | 演示环境编排 |
+| `scripts/start.sh` | 本地启动脚本 |
+| `scripts/check.sh` | 服务健康检查脚本 |
+| `scripts/stop.sh` | 本地停止脚本 |
+
+---
+
+## 8. 注意事项
+
+- `模型/` 目录中的训练原始素材很大，不建议直接纳入仓库管理
+- 当前仓库已保留实际使用的推理权重 `crack_yolo_best.pt`
+- Docker 在 macOS 上首次构建会比较慢，尤其是 PyTorch / OpenCV 相关依赖
+- 如果遇到 BuildKit 异常，可切到 legacy builder：
 
 ```bash
-python mock_devices/iot_sensor_simulator.py
+DOCKER_BUILDKIT=0 COMPOSE_DOCKER_CLI_BUILD=0 docker compose -f ops/docker-compose.deploy.yml up -d --build
 ```
 
 ---
 
-## 🛠 关键技术栈 (Tech Stack)
+## 9. 项目定位
 
-- **Frontend**: Vue 3.x, Vue Router 4, Axios, Vite
-- **Visualization**: Three.js, ECharts, HTML5 Canvas
-- **Backend**: Python, FastAPI, SQLAlchemy, SQLite (可平滑迁移为 PostgreSQL), Passlib
-- **IoT Data Link**: MQTT (Paho), Apache Kafka, WebSockets
-- **AI Engine**: PyTorch, HuggingFace Transformers, YOLO Ecosystem
+这不是一个完全工业落地的生产系统，而是一套 **“可演示、可联调、可继续扩展的矿山数字孪生与预警平台原型”**。
 
----
+它最适合：
+- 课程设计 / 毕设 / 比赛答辩
+- 展示矿山空天地一体化方案
+- 后续继续迭代成更完整的工程项目
 
-## 📜 许可证 (License)
-
-本项目受开源协议保护，仅供学习、2026 年度挑战杯等学术及演示交流使用。商业用途或核心机密修改请遵守团队所属规范。
