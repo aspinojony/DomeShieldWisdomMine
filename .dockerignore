@@ -1,0 +1,29 @@
+.git
+.gitignore
+**/.git
+**/.venv
+**/venv
+**/node_modules
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/.DS_Store
+
+# Huge artifacts / training outputs
+模型
+模型.
+results
+runs
+checkpoints
+*.pt
+*.onnx
+*.engine
+*.tflite
+*.ckpt
+*.pth
+*.bin
+
+# Local logs/temp
+*.log
+*.tmp
+*.swp

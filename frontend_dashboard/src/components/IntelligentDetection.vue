@@ -218,15 +218,11 @@ const fetchHistory = async () => {
 
 const fetchLatestAuto = async () => {
   try {
-    // Note: Calling 8001 (AI Engine) specifically for the latest drone-triggered result
-    const res = await axios.get('http://localhost:8001/api/v1/vision/latest')
-    if (res.data?.data) {
-      // The AI engine returns the full response from 8003
-      const result = res.data.data.data
-      if (result && (!latestAutoResult.value || result.id !== latestAutoResult.value.id)) {
-        latestAutoResult.value = result
-        fetchHistory() // Refresh the sidebar
-      }
+    const res = await axios.get('http://localhost:8003/api/v1/vision/latest')
+    const result = res?.data?.data || res?.data
+    if (result && (!latestAutoResult.value || result.id !== latestAutoResult.value.id)) {
+      latestAutoResult.value = result
+      fetchHistory() // Refresh the sidebar
     }
   } catch (e) {
     console.warn("Auto polling failed", e)

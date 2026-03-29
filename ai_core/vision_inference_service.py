@@ -3,7 +3,10 @@ import numpy as np
 import os
 import time
 import json
+from datetime import datetime
 from fastapi import FastAPI, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
+from datetime import datetime
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 import uvicorn
@@ -13,7 +16,9 @@ from models.cv.crack_yolo_model import CrackDetectorYOLO
 
 # 全局存储引擎
 cv_engine = None
-HISTORY_FILE = "./results/cv/history.json"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+RESULTS_DIR = os.path.join(BASE_DIR, 'results', 'cv')
+HISTORY_FILE = os.path.join(RESULTS_DIR, 'history.json')
 
 
 def save_history(entry):
@@ -40,23 +45,47 @@ async def lifespan(app: FastAPI):
     print(" 🚁 [空中侦察节点] 部署无人机视觉推演边缘服务")
     print("========================================")
     # 确保目录存在
-    os.makedirs("./results/cv", exist_ok=True)
+    os.makedirs(RESULTS_DIR, exist_ok=True)
     if not os.path.exists(HISTORY_FILE):
         with open(HISTORY_FILE, "w", encoding="utf-8") as f:
             json.dump([], f)
 
     # 初始化视觉引擎
-    cv_engine = CrackDetectorYOLO(
-        config_path="/Users/a0000/天空一体矿山系统/ai_core/configs/cv_yolo.yaml"
-    )
+    cfg_path = os.path.join(BASE_DIR, "configs", "cv_yolo.yaml")
+
+    # 可选：通过环境变量快速切换同学训练权重（不改代码）
+    # 例如：YOLO_WEIGHTS_PATH=/opt/ds-mine/app/ai_core/checkpoints/crack_yolo_best.pt
+    override_weights = os.getenv("YOLO_WEIGHTS_PATH", "").strip()
+    if override_weights:
+        try:
+            import yaml
+            with open(cfg_path, "r", encoding="utf-8") as f:
+                cfg = yaml.safe_load(f) or {}
+            cfg.setdefault("model", {})["weights_path"] = override_weights
+            with open(cfg_path, "w", encoding="utf-8") as f:
+                yaml.safe_dump(cfg, f, allow_unicode=True, sort_keys=False)
+            print(f"🧩 [视觉节点] 已注入 YOLO_WEIGHTS_PATH -> {override_weights}")
+        except Exception as e:
+            print(f"⚠️ [视觉节点] 注入 YOLO_WEIGHTS_PATH 失败: {e}")
+
+    cv_engine = CrackDetectorYOLO(config_path=cfg_path)
     yield
     print("🚁 [视觉节点] 关闭。")
 
 
 app = FastAPI(title="云边协同 - UAV 图像 AI 分析", lifespan=lifespan)
 
+# 允许前端跨域访问（开发环境 5173 / 生产反代域名）
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # 挂载静态资源目录
-app.mount("/static/cv_results", StaticFiles(directory="./results/cv"), name="static")
+app.mount("/static/cv_results", StaticFiles(directory=RESULTS_DIR), name="static")
 
 
 @app.get("/api/v1/vision/history")
@@ -77,6 +106,11 @@ async def get_latest_vision():
             if history:
                 return history[0]
     return None
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok", "service": "vision", "model_loaded": cv_engine is not None}
 
 
 @app.post("/api/v1/vision/analyze_crack")
@@ -101,7 +135,7 @@ async def analyze_crack(file: UploadFile = File(...)):
     )
 
     start_t = time.time()
-    result = cv_engine.infer(image, conf_threshold=0.25)
+    result = cv_engine.infer(image, conf_threshold=None)
     cost_ms = int((time.time() - start_t) * 1000)
 
     # 3. 解析目标的 Bounding Boxes
@@ -130,7 +164,7 @@ async def analyze_crack(file: UploadFile = File(...)):
                     round(float(x1), 1),
                     round(float(y1), 1),
                     round(float(x2), 1),
-                    round(float(x2), 1),
+                    round(float(y2), 1),
                 ],
             }
         )
@@ -150,7 +184,7 @@ async def analyze_crack(file: UploadFile = File(...)):
 
     # 4. 落地保存告警佐证图
     filename = f"detected_{int(time.time())}_{cracks_count}.jpg"
-    final_save_path = os.path.join("./results/cv", filename)
+    final_save_path = os.path.join(RESULTS_DIR, filename)
     cv2.imwrite(final_save_path, image)
 
     # 5. 生成物理学结论
@@ -190,7 +224,5 @@ async def analyze_crack(file: UploadFile = File(...)):
 
 
 if __name__ == "__main__":
-    from datetime import datetime
-
     print("▶️ 开始启动空天视觉处理网关...")
     uvicorn.run(app, host="0.0.0.0", port=8003)

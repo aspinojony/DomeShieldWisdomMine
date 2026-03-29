@@ -1,8 +1,25 @@
-# YOLOv8 训练配置
+# YOLOv8 训练/推理配置
 experiment_name: "YOLOv8_Crack_Detection_V1"
+
 model:
-  type: "yolov8n.pt" # 选用轻量级 YOLOv8 nano 版本，为了适配无人机边缘算力
+  # 推理时优先使用 weights_path（同学训练好的权重）
+  # 可填绝对路径，或相对 ai_core/configs 的路径
+  # 例如: "../checkpoints/crack_yolo_best.pt"
+  weights_path: "../checkpoints/crack_yolo_best.pt"
+
+  # 当 weights_path 为空或不存在时回退到 type
+  type: "yolov8n.pt"
   num_classes: 1 # 只需要识别"裂缝 (crack)"一种类别即可
+
+inference:
+  # 置信度阈值（接口未传入时使用）
+  conf_threshold: 0.12
+  # NMS IoU 阈值
+  iou_threshold: 0.45
+  # 推理尺寸
+  imgsz: 960
+  # auto/cpu/mps/cuda:0
+  device: "auto"
 
 training:
   epochs: 100

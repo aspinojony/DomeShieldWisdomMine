@@ -50,7 +50,7 @@
 
       <!-- 底部信息 -->
       <div class="login-footer">
-        <p>默认管理员: admin / admin123</p>
+        <p>演示账号: admin / admin123</p>
         <p class="copyright">© 2026 穹盾智矿 · 矿山安全生产智能管控平台</p>
       </div>
     </div>

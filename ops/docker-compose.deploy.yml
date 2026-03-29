@@ -1,0 +1,76 @@
+version: "3.9"
+
+services:
+  frontend:
+    build:
+      context: ../frontend_dashboard
+      dockerfile: Dockerfile
+    container_name: dome_frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - api-server
+      - business-api
+      - ai-engine
+      - vision-engine
+    restart: unless-stopped
+
+  api-server:
+    build:
+      context: ..
+      dockerfile: Dockerfile.backend
+    container_name: dome_api_server
+    command: ["uvicorn", "backend_service.api_server:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      DEMO_MODE: "true"
+      CORS_ALLOW_ORIGINS: "*"
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  business-api:
+    build:
+      context: ..
+      dockerfile: Dockerfile.backend
+    container_name: dome_business_api
+    command: ["uvicorn", "backend_service.business_api:app", "--host", "0.0.0.0", "--port", "8002"]
+    environment:
+      CORS_ALLOW_ORIGINS: "*"
+      DEFAULT_ADMIN_USERNAME: "admin"
+      DEFAULT_ADMIN_PASSWORD: "admin123"
+    ports:
+      - "8002:8002"
+    volumes:
+      - ../backend_service/mining_system.db:/app/backend_service/mining_system.db
+    restart: unless-stopped
+
+  ai-engine:
+    build:
+      context: ..
+      dockerfile: Dockerfile.backend
+    container_name: dome_ai_engine
+    command: ["python", "backend_service/ai_prediction_engine.py"]
+    environment:
+      CORS_ALLOW_ORIGINS: "*"
+    ports:
+      - "8001:8001"
+    volumes:
+      - ../results:/app/results
+      - ../ai_core:/app/ai_core
+    restart: unless-stopped
+
+  vision-engine:
+    build:
+      context: ..
+      dockerfile: Dockerfile.backend
+    container_name: dome_vision_engine
+    command: ["python", "ai_core/vision_inference_service.py"]
+    environment:
+      CORS_ALLOW_ORIGINS: "*"
+      YOLO_WEIGHTS_PATH: "/app/ai_core/checkpoints/crack_yolo_best.pt"
+    ports:
+      - "8003:8003"
+    volumes:
+      - ../results:/app/results
+      - ../ai_core:/app/ai_core
+    restart: unless-stopped

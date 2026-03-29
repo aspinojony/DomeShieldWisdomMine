@@ -14,9 +14,10 @@ from database import get_db
 from models import User, RoleEnum
 
 # ---- 安全配置 ----
-SECRET_KEY = "qiandun-smart-mine-2026-secret-key-do-not-leak"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 480  # 8小时
+from settings import JWT_SECRET_KEY, JWT_ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
+
+SECRET_KEY = JWT_SECRET_KEY
+ALGORITHM = JWT_ALGORITHM
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 

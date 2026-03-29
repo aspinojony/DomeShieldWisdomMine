@@ -145,6 +145,8 @@ services:
       dockerfile: Dockerfile.backend
     container_name: msm_ai_vision
     command: ["python", "ai_core/vision_inference_service.py"]
+    environment:
+      YOLO_WEIGHTS_PATH: "/app/ai_core/checkpoints/crack_yolo_best.pt"
     ports:
       - "8003:8003"
     volumes:

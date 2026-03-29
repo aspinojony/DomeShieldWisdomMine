@@ -1,8 +1,9 @@
 import { defineStore } from 'pinia'
-import axios from 'axios'
+import { get, post, put, del } from '../utils/http'
 import { authState } from '../auth'
+import { API_ENDPOINTS } from '../config/api'
 
-const API_BIZ_BASE = `http://${window.location.hostname}:8002/api/v1`
+const API_BIZ_BASE = API_ENDPOINTS.biz
 
 const mockFleet = [
   { device_id: 'TRK-001', device_name: '卡车 TRK-01', location: { lng: 110.122, lat: 35.122 }, telemetry: { speed: 42.5 }, status: 'online' },
@@ -46,12 +47,11 @@ export const useOperationsStore = defineStore('operations', {
   actions: {
     async fetchAllData() {
       try {
-        const config = { headers: { Authorization: `Bearer ${authState.token}` } }
-        const [resKpi, resFleet, resTasks, resLeader] = await Promise.all([
-          axios.get(`${API_BIZ_BASE}/ops/production-kpi`, config),
-          axios.get(`${API_BIZ_BASE}/ops/fleet/status`, config),
-          axios.get(`${API_BIZ_BASE}/ops/tasks/active`, config),
-          axios.get(`${API_BIZ_BASE}/ops/stats/efficiency-leaderboard`, config)
+                const [resKpi, resFleet, resTasks, resLeader] = await Promise.all([
+          get(`${API_BIZ_BASE}/ops/production-kpi`),
+          get(`${API_BIZ_BASE}/ops/fleet/status`),
+          get(`${API_BIZ_BASE}/ops/tasks/active`),
+          get(`${API_BIZ_BASE}/ops/stats/efficiency-leaderboard`)
         ])
         
         this.kpi = resKpi.data

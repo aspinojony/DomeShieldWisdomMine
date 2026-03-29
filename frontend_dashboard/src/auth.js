@@ -5,7 +5,9 @@
 import { reactive } from 'vue'
 import axios from 'axios'
 
-const API_BIZ_BASE = `http://${window.location.hostname}:8002/api/v1`
+import { API_ENDPOINTS } from './config/api'
+
+const API_BIZ_BASE = API_ENDPOINTS.biz
 
 // 全局认证状态
 export const authState = reactive({

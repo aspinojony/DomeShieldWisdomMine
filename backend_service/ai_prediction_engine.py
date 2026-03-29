@@ -11,6 +11,8 @@ import uvicorn
 from contextlib import asynccontextmanager
 import torch
 import warnings
+import datetime
+import math
 
 warnings.filterwarnings("ignore")
 
@@ -247,8 +249,15 @@ def simulate_drone_flight(drone):
     global latest_vision_result
     print(f"📸 [AI 中心] {drone['id']} 正在回传现场高清图，送交视觉智脑 (8003) 研判...")
     try:
-        # 使用之前生成的裂缝测试图作为模拟输入
-        test_img_path = "/Users/a0000/.gemini/antigravity/brain/c8a46def-1b7c-4db9-b9d8-ee14848f1945/mine_crack_sample_jpg_1772627212841.png"
+        # 优先使用项目内样例图；没有则回退到最近一次结果图
+        candidate_paths = [
+            os.path.join(os.path.dirname(__file__), "..", "results", "cv", "detected_1772629371.jpg"),
+            os.path.join(os.path.dirname(__file__), "..", "results", "cv", "detected_1772628349.jpg"),
+            os.path.join(os.path.dirname(__file__), "..", "results", "cv", "detected_1772627350.jpg"),
+        ]
+        test_img_path = next((p for p in candidate_paths if os.path.exists(p)), None)
+        if not test_img_path:
+            raise FileNotFoundError("No bundled UAV sample image found")
         with open(test_img_path, "rb") as f:
             res = requests.post(
                 "http://127.0.0.1:8003/api/v1/vision/analyze_crack", files={"file": f}
@@ -290,20 +299,71 @@ app.add_middleware(
 )
 
 
+def get_demo_scene(now=None):
+    now = now or datetime.datetime.now()
+    cycle = 360
+    sec = int(now.timestamp()) % cycle
+    if sec < 150:
+        phase = 'stable'; progress = sec / 150
+    elif sec < 220:
+        phase = 'precursor'; progress = (sec - 150) / 70
+    elif sec < 280:
+        phase = 'warning'; progress = (sec - 220) / 60
+    elif sec < 330:
+        phase = 'dispatch'; progress = (sec - 280) / 50
+    else:
+        phase = 'recovery'; progress = (sec - 330) / 30
+    return phase, max(0.0, min(1.0, progress)), sec
+
+
 @app.get("/api/v1/ai/alerts")
 def get_ai_alerts():
-    return {"status": "success", "total": len(alert_logs), "data": alert_logs[:10]}
+    now = datetime.datetime.now()
+    phase, progress, sec = get_demo_scene(now)
+    conf = {
+        'stable': (18.0, '安全', '持续监测'),
+        'precursor': (42.0, '监控级 (一级)', '提高边坡区域采样频率'),
+        'warning': (68.0, '预警级 (二级)', '建议派遣无人机抵近核查'),
+        'dispatch': (84.0, '预警级 (二级)', '无人机正在执行视觉复核'),
+        'recovery': (46.0, '监控级 (一级)', '现场复核完成，转入持续观察'),
+    }
+    base_prob, level, action = conf[phase]
+    prob = round(base_prob + math.sin(sec / 11) * 2.2 + progress * 3.5, 2)
+    item = {'id': f'AI-SCENE-{phase}-{sec}', 'time': now.strftime('%Y-%m-%d %H:%M:%S'), 'device': 'SLOPE-ZONE-A', 'probability': prob, 'level': level, 'action': action, 'evidence': np.zeros((60, 4)).tolist()}
+    return {'status': 'success', 'total': 1, 'scene_phase': phase, 'data': [item]}
 
 
 @app.get("/api/v1/drones/status")
 def get_drones_status():
-    return {"status": "success", "data": uav_fleet}
+    now = datetime.datetime.now()
+    phase, progress, sec = get_demo_scene(now)
+    if phase == 'stable':
+        fleet = [{'id': 'UAV-EAGLE-01', 'type': '先锋侦察机', 'status': '例行巡检', 'target': '北侧边坡巡检航线', 'progress': int((sec % 150) / 150 * 100)}, {'id': 'UAV-MAPPER-02', 'type': '图传测绘机', 'status': '待命闲置', 'target': None, 'progress': 0}]
+    elif phase == 'precursor':
+        fleet = [{'id': 'UAV-EAGLE-01', 'type': '先锋侦察机', 'status': '返航待命', 'target': '机库', 'progress': 100}, {'id': 'UAV-MAPPER-02', 'type': '图传测绘机', 'status': '任务预热', 'target': 'SLOPE-ZONE-A', 'progress': 15}]
+    elif phase == 'warning':
+        fleet = [{'id': 'UAV-EAGLE-01', 'type': '先锋侦察机', 'status': '起飞准备', 'target': 'SLOPE-ZONE-A', 'progress': int(25 + progress * 30)}, {'id': 'UAV-MAPPER-02', 'type': '图传测绘机', 'status': '链路检查', 'target': '北侧坡面', 'progress': int(35 + progress * 20)}]
+    elif phase == 'dispatch':
+        fleet = [{'id': 'UAV-EAGLE-01', 'type': '先锋侦察机', 'status': '抵近侦察中', 'target': 'SLOPE-ZONE-A', 'progress': int(55 + progress * 35)}, {'id': 'UAV-MAPPER-02', 'type': '图传测绘机', 'status': '图传回传', 'target': 'SLOPE-ZONE-A', 'progress': int(62 + progress * 28)}]
+    else:
+        fleet = [{'id': 'UAV-EAGLE-01', 'type': '先锋侦察机', 'status': '返航中', 'target': '机库', 'progress': int(85 + progress * 15)}, {'id': 'UAV-MAPPER-02', 'type': '图传测绘机', 'status': '任务结束', 'target': None, 'progress': 100}]
+    return {'status': 'success', 'scene_phase': phase, 'data': fleet}
 
 
 @app.get("/api/v1/vision/latest")
 def get_latest_vision():
-    """暴露给前端大屏的最近侦察画面"""
-    return {"status": "success", "data": latest_vision_result}
+    now = datetime.datetime.now()
+    phase, progress, sec = get_demo_scene(now)
+    conf = {
+        'stable': ('安全 - 常规巡检未见异常', 2.1),
+        'precursor': ('关注 - 坡面局部纹理变化', 2.8),
+        'warning': ('二级预警 - 检测到裂缝扩展趋势', 4.3),
+        'dispatch': ('二级预警 - 裂缝扩展已复核确认', 5.1),
+        'recovery': ('关注 - 裂缝稳定，进入持续观察', 3.6),
+    }
+    level, width = conf[phase]
+    data = {'alert_level': level, 'zone_id': 'SLOPE-ZONE-A', 'image_url': '/results/crack_demo_1.jpg', 'max_width_mm': round(width + math.sin(sec / 10) * 0.15, 1), 'timestamp': now.strftime('%Y-%m-%d %H:%M:%S')}
+    return {'status': 'success', 'scene_phase': phase, 'data': data}
 
 
 @app.post("/api/v1/ai/trigger_crisis")

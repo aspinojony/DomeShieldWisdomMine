@@ -20,8 +20,12 @@ const routes = [
   },
   {
     path: '/production',
-    name: 'Production',
-    component: () => import('../components/operations/OperationsDashboard.vue'),
+    redirect: '/product'
+  },
+  {
+    path: '/product',
+    name: 'Product',
+    component: () => import('../components/product/ProductWorkbench.vue'),
     meta: { requiresAuth: true }
   },
   {

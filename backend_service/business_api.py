@@ -10,6 +10,8 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import timedelta, datetime
+import math
+import random
 
 from database import engine, get_db, Base
 from models import (
@@ -23,6 +25,7 @@ from models import (
     ProductionRecord,
     ProductionTask,
 )
+from settings import CORS_ALLOW_ORIGINS, DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD
 from auth import (
     verify_password,
     get_password_hash,
@@ -40,7 +43,7 @@ app = FastAPI(title="穹盾智矿 - 核心业务管理平台", version="2.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ALLOW_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -159,11 +162,11 @@ def seed_data():
     """启动时自动填充初始数据"""
     db = next(get_db())
     # 1. 创建默认管理员
-    existing_admin = db.query(User).filter(User.username == "admin").first()
+    existing_admin = db.query(User).filter(User.username == DEFAULT_ADMIN_USERNAME).first()
     if not existing_admin:
         admin = User(
-            username="admin",
-            hashed_password=get_password_hash("admin123"),
+            username=DEFAULT_ADMIN_USERNAME,
+            hashed_password=get_password_hash(DEFAULT_ADMIN_PASSWORD),
             full_name="系统管理员",
             role="admin",
         )
@@ -605,245 +608,147 @@ class TaskOut(BaseModel):
 # ==============================
 
 
+def get_demo_scene(now: Optional[datetime] = None):
+    now = now or datetime.now()
+    cycle = 360
+    sec = int(now.timestamp()) % cycle
+    if sec < 150:
+        phase = 'stable'; progress = sec / 150
+    elif sec < 220:
+        phase = 'precursor'; progress = (sec - 150) / 70
+    elif sec < 280:
+        phase = 'warning'; progress = (sec - 220) / 60
+    elif sec < 330:
+        phase = 'dispatch'; progress = (sec - 280) / 50
+    else:
+        phase = 'recovery'; progress = (sec - 330) / 30
+    return phase, max(0.0, min(1.0, progress)), sec
+
+
 @app.get(
     "/api/v1/ops/mining-summary", response_model=MiningSummaryOut, tags=["生产运营"]
 )
 def get_mining_summary(db: Session = Depends(get_db)):
-    """矿山总览：汇总安全、资产、产线及环境状态"""
-    # 1. 安全态势 (根据未处理告警判断)
-    active_alerts = (
-        db.query(AlertRecord).filter(AlertRecord.is_acknowledged == False).all()
-    )
+    """矿山总览：按真实演示场景构造统一联动数据"""
+    now = datetime.now()
+    phase, progress, sec = get_demo_scene(now)
 
-    # 2. 资产统计 (支持动态归类)
-    devices = db.query(Device).all()
     asset_map = {
-        "excavator": {"online": 0, "total": 0},
-        "truck": {"online": 0, "total": 0},
-        "uav": {"online": 0, "total": 0},
-        "crusher": {"online": 0, "total": 0},
+        'excavator': {'online': 12, 'total': 15},
+        'truck': {'online': 41, 'total': 45},
+        'uav': {'online': 4 if phase in ['stable', 'precursor'] else 5, 'total': 5},
+        'crusher': {'online': 2, 'total': 2},
+    }
+    if phase == 'warning':
+        asset_map['truck']['online'] = 38
+    elif phase == 'dispatch':
+        asset_map['truck']['online'] = 35
+        asset_map['excavator']['online'] = 10
+    elif phase == 'recovery':
+        asset_map['truck']['online'] = 39
+        asset_map['excavator']['online'] = 11
+
+    today_zero = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    elapsed_hours = max(0.0, (now - today_zero).total_seconds() / 3600)
+    base_output = 180 * min(elapsed_hours, 2) + 240 * max(elapsed_hours - 2, 0)
+    scene_bonus = {'stable': 0, 'precursor': 18, 'warning': 35, 'dispatch': 12, 'recovery': 20}[phase]
+    current = round(base_output + scene_bonus + now.minute * 2.6 + now.second * 0.045, 1)
+    efficiency = {'stable': 87.5, 'precursor': 84.2, 'warning': 76.8, 'dispatch': 71.5, 'recovery': 82.6}[phase]
+    prod_stats = {
+        'current': current,
+        'target': 5000.0,
+        'efficiency': efficiency,
+        'material_stock': round(146.0 - elapsed_hours * 0.55, 1),
+        'fuel_stock': round(139.5 - elapsed_hours * 1.1, 1),
     }
 
-    for d in devices:
-        d_type = d.device_type
-        if d_type in asset_map:
-            asset_map[d_type]["total"] += 1
-            if d.status == "online":
-                asset_map[d_type]["online"] += 1
-
-    # 为由于本地数据库缺乏完整数据而导致大屏“空荡荡”的情况进行逼真兜底补全
-    if asset_map["excavator"]["total"] == 0:
-        asset_map["excavator"] = {"online": 12, "total": 15}
-    if asset_map["truck"]["total"] == 0:
-        asset_map["truck"] = {"online": 42, "total": 45}
-    if asset_map["uav"]["total"] == 0:
-        asset_map["uav"] = {"online": 4, "total": 5}
-    if asset_map["crusher"]["total"] == 0:
-        asset_map["crusher"] = {"online": 2, "total": 2}
-
-    # 3. 今日生产进度
-    today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-    records = (
-        db.query(ProductionRecord)
-        .filter(ProductionRecord.timestamp >= today_start)
-        .all()
-    )
-    if not records:
-        prod_stats = {
-            "current": 3285.5,
-            "target": 5000.0,
-            "efficiency": 315.2,
-            "material_stock": 142.3,
-            "fuel_stock": 141.5,
-        }
-    else:
-        prod_stats = {
-            "current": round(sum(r.tonnage for r in records), 2),
-            "target": 5000.0,
-            "efficiency": round(
-                sum(r.efficiency for r in records) / len(records) if records else 0, 2
-            ),
-            "material_stock": 138.6 + sum(r.tonnage for r in records) / 1000,
-            "fuel_stock": 145.6 - sum(r.fuel_consumption for r in records) / 10000,
-        }
-
-    # 如果有真实流水但数量太少，同样补充基础台账数据保证画面丰满度
-    if prod_stats["current"] < 1000:
-        prod_stats["current"] += 3285.5
-        if prod_stats["efficiency"] == 0:
-            prod_stats["efficiency"] = 315.2
-
-    # 4. 最近告警列表 & 安全态势兜底
-    recent = (
-        db.query(AlertRecord).order_by(AlertRecord.triggered_at.desc()).limit(5).all()
-    )
-    if not recent:
+    if phase == 'stable':
+        safety = 'green'
         recent = [
-            {
-                "id": 1,
-                "device_id": "SENSOR-BD-01",
-                "alert_level": "danger",
-                "description": "边坡位移超阈值 (5.2cm) - 紧急撤离",
-                "triggered_at": datetime.now() - timedelta(minutes=2),
-                "is_acknowledged": False,
-            },
-            {
-                "id": 2,
-                "device_id": "CAM-AI-03",
-                "alert_level": "warning",
-                "description": "挖掘区违规大块石堵塞",
-                "triggered_at": datetime.now() - timedelta(minutes=12),
-                "is_acknowledged": False,
-            },
+            {'id': 1, 'device_id': 'CM-001', 'metric_field': 'crack_width_mm', 'metric_value': 2.1, 'threshold': 4.0, 'alert_level': 'info', 'message': '边坡监测稳定，处于正常巡检区间', 'is_acknowledged': True, 'triggered_at': now},
         ]
-        safety = "red"
+    elif phase == 'precursor':
+        safety = 'yellow'
+        recent = [
+            {'id': 1, 'device_id': 'MS-001', 'metric_field': 'energy_level', 'metric_value': 24.6, 'threshold': 20.0, 'alert_level': 'warning', 'message': '微震能级连续抬升，建议加密巡检频次', 'is_acknowledged': False, 'triggered_at': now},
+        ]
+    elif phase == 'warning':
+        safety = 'yellow'
+        recent = [
+            {'id': 1, 'device_id': 'CM-001', 'metric_field': 'crack_width_mm', 'metric_value': 4.3, 'threshold': 4.0, 'alert_level': 'warning', 'message': '裂缝宽度接近预警阈值，已进入重点监控', 'is_acknowledged': False, 'triggered_at': now},
+            {'id': 2, 'device_id': 'IN-001', 'metric_field': 'angle_x', 'metric_value': 0.22, 'threshold': 0.2, 'alert_level': 'warning', 'message': '边坡倾角出现持续偏移', 'is_acknowledged': False, 'triggered_at': now},
+        ]
+    elif phase == 'dispatch':
+        safety = 'red'
+        recent = [
+            {'id': 1, 'device_id': 'SLOPE-ZONE-A', 'metric_field': 'risk_score', 'metric_value': 86.0, 'threshold': 70.0, 'alert_level': 'danger', 'message': '边坡风险升至二级预警，无人机已起飞核查', 'is_acknowledged': False, 'triggered_at': now},
+            {'id': 2, 'device_id': 'CM-001', 'metric_field': 'crack_width_mm', 'metric_value': 5.2, 'threshold': 4.0, 'alert_level': 'danger', 'message': '裂缝扩展速率升高，建议限制临近作业', 'is_acknowledged': False, 'triggered_at': now},
+        ]
     else:
-        if any(a.alert_level == "danger" for a in active_alerts):
-            safety = "red"
-        elif active_alerts:
-            safety = "yellow"
-        else:
-            safety = "green"
+        safety = 'yellow'
+        recent = [
+            {'id': 1, 'device_id': 'SLOPE-ZONE-A', 'metric_field': 'risk_score', 'metric_value': 48.0, 'threshold': 70.0, 'alert_level': 'warning', 'message': '现场复核完成，风险回落至持续观察', 'is_acknowledged': False, 'triggered_at': now},
+        ]
 
-    # 5. 补充动态数据 (作业记录、设备状态、成本、品味)
+    logs_map = {
+        'stable': ['1#铲完成第18车装载，运输链路正常', 'UAV-EAGLE-01 按计划巡检边坡北侧', '破碎站皮带负载稳定，当前连续运行', '调度中心完成一轮常规生产核验'],
+        'precursor': ['微震监测能级抬升，系统自动提高采样频率', '调度中心将边坡北侧列入重点观察区域', '1#铲作业正常，临近边坡车辆限速提醒已下发', 'AI 风险模型进入增强分析模式'],
+        'warning': ['裂缝计与倾角计出现协同异常，值班长已确认', '系统下发边坡北侧作业减速指令', '无人机巡检任务进入待命队列', '调度中心保留运输主线，压缩临边作业窗口'],
+        'dispatch': ['UAV-EAGLE-01 已起飞，前往 SLOPE-ZONE-A 核查', '边坡北侧临近车辆已执行绕行', 'AI 风险模型维持二级预警输出', '现场管理人员正在等待无人机图传回传'],
+        'recovery': ['无人机核查结束，边坡区域已转入持续观察', '临边车辆恢复限流通行，作业强度仍受控', 'AI 模型风险评分持续回落', '值班长记录本轮预警处置闭环'],
+    }
     operation_logs = [
-        {
-            "time": (datetime.now() - timedelta(minutes=15)).strftime("%H:%M"),
-            "event": "ZY 钻机 1#钻机 完成28#正常转孔",
-            "level": "normal",
-        },
-        {
-            "time": (datetime.now() - timedelta(minutes=30)).strftime("%H:%M"),
-            "event": "挖掘机 3# 完成装车",
-            "level": "success",
-        },
-        {
-            "time": (datetime.now() - timedelta(minutes=45)).strftime("%H:%M"),
-            "event": "运输车 12# 驶入卸矿区",
-            "level": "normal",
-        },
-        {
-            "time": (datetime.now() - timedelta(minutes=60)).strftime("%H:%M"),
-            "event": "无人机 UAV-01 起飞巡检",
-            "level": "info",
-        },
+        {'time': (now - timedelta(seconds=i * 45)).strftime('%H:%M:%S'), 'event': text, 'level': 'warning' if phase in ['warning', 'dispatch'] and i < 2 else ('info' if 'AI' in text or '无人机' in text or 'UAV' in text else 'normal')}
+        for i, text in enumerate(logs_map[phase])
     ]
 
-    cost_metrics = [
-        {"name": "炸药", "value": 40, "color": "#00f0ff", "cost": "0.12"},
-        {"name": "中保", "value": 38, "color": "#3a86ff", "cost": "0.20"},
-        {"name": "工资", "value": 32, "color": "#ff9900", "cost": "0.12"},
-        {"name": "柴油", "value": 30, "color": "#ccd6f6", "cost": "0.12"},
-    ]
+    chokepoints = {
+        'stable': [
+            {'location': '装车区 A (1#铲)', 'waiting_trucks': 2, 'avg_wait_min': 3.4, 'status': 'normal'},
+            {'location': '装车区 B (3#铲)', 'waiting_trucks': 3, 'avg_wait_min': 5.2, 'status': 'normal'},
+            {'location': '粗破碎站卸料口', 'waiting_trucks': 1, 'avg_wait_min': 1.8, 'status': 'free'},
+        ],
+        'precursor': [
+            {'location': '装车区 A (1#铲)', 'waiting_trucks': 3, 'avg_wait_min': 4.6, 'status': 'normal'},
+            {'location': '装车区 B (3#铲)', 'waiting_trucks': 4, 'avg_wait_min': 6.8, 'status': 'normal'},
+            {'location': '粗破碎站卸料口', 'waiting_trucks': 1, 'avg_wait_min': 2.0, 'status': 'free'},
+        ],
+        'warning': [
+            {'location': '装车区 A (1#铲)', 'waiting_trucks': 4, 'avg_wait_min': 6.2, 'status': 'normal'},
+            {'location': '装车区 B (3#铲)', 'waiting_trucks': 6, 'avg_wait_min': 9.5, 'status': 'congested'},
+            {'location': '粗破碎站卸料口', 'waiting_trucks': 2, 'avg_wait_min': 2.6, 'status': 'normal'},
+        ],
+        'dispatch': [
+            {'location': '装车区 A (1#铲)', 'waiting_trucks': 5, 'avg_wait_min': 8.6, 'status': 'congested'},
+            {'location': '装车区 B (3#铲)', 'waiting_trucks': 7, 'avg_wait_min': 12.8, 'status': 'congested'},
+            {'location': '粗破碎站卸料口', 'waiting_trucks': 2, 'avg_wait_min': 3.1, 'status': 'normal'},
+        ],
+        'recovery': [
+            {'location': '装车区 A (1#铲)', 'waiting_trucks': 3, 'avg_wait_min': 5.1, 'status': 'normal'},
+            {'location': '装车区 B (3#铲)', 'waiting_trucks': 4, 'avg_wait_min': 7.0, 'status': 'normal'},
+            {'location': '粗破碎站卸料口', 'waiting_trucks': 1, 'avg_wait_min': 2.1, 'status': 'free'},
+        ],
+    }[phase]
 
-    key_equipment = [
-        {
-            "name": "1#PSZ",
-            "status": "23HZ",
-            "status_class": "text-cyan",
-            "current": "23.5A",
-        },
-        {
-            "name": "2#PSZ",
-            "status": "故障",
-            "status_class": "warning-text",
-            "current": "-",
-        },
-        {
-            "name": "3#PSZ",
-            "status": "正常",
-            "status_class": "text-green",
-            "current": "20.1A",
-        },
-    ]
-
-    material_quality = [
-        {
-            "name": "CaO",
-            "value": "52.3",
-            "trend": "-",
-            "range": "45.50-53.50",
-            "status": "normal",
-        },
-        {
-            "name": "MgO",
-            "value": "0.26",
-            "trend": "↑",
-            "range": "0.20-0.50",
-            "status": "warning",
-        },
-        {
-            "name": "SO3",
-            "value": "0.24",
-            "trend": "↓",
-            "range": "0.20-0.26",
-            "status": "danger",
-        },
-    ]
-
-    # ============== 新增的高阶指控维度 (动态计算) ==============
-
-    # a. 物流卡口 (拥堵指数)
-    truck_count = asset_map.get("truck", {}).get("total", 0)
-    chokepoints = [
-        {
-            "location": "装车区 A (1#铲)",
-            "waiting_trucks": min(3, truck_count),
-            "avg_wait_min": 4.5,
-            "status": "normal",
-        },
-        {
-            "location": "装车区 B (3#铲)",
-            "waiting_trucks": min(7, truck_count),
-            "avg_wait_min": 12.0,
-            "status": "congested",
-        },
-        {
-            "location": "粗破碎站卸料口",
-            "waiting_trucks": 1,
-            "avg_wait_min": 2.0,
-            "status": "free",
-        },
-    ]
-
-    # b. 剥离量 (露天矿核心指标, 根据实际产量推演)
-    stripping = {
-        "current_m3": round(prod_stats["current"] * 2.5, 2),  # 假设剥采比大致推算
-        "target_m3": 15000.0,
-        "ratio": "2.5:1",
-    }
-
-    # c. OEE (全局设备出勤率综合)
-    total_devs = sum(v["total"] for v in asset_map.values())
-    online_devs = sum(v["online"] for v in asset_map.values())
-    oee = {
-        "availability": round((online_devs / total_devs * 100) if total_devs else 0, 1),
-        "performance": 85.2,
-        "quality": 98.5,
-        "oee_score": round(
-            (online_devs / total_devs * 0.852 * 0.985 * 100) if total_devs else 0, 1
-        ),
-    }
+    total_devs = sum(v['total'] for v in asset_map.values())
+    online_devs = sum(v['online'] for v in asset_map.values())
+    availability = round((online_devs / total_devs * 100), 1)
+    performance = {'stable': 88.0, 'precursor': 85.0, 'warning': 79.0, 'dispatch': 73.0, 'recovery': 83.0}[phase]
+    quality = 98.4
 
     return {
-        "safety_status": safety,
-        "asset_stats": asset_map,
-        "production_today": prod_stats,
-        "recent_alerts": recent,
-        "environment": {
-            "wind_speed": 4.2,
-            "visibility": 3500,
-            "pm25": 45,
-            "rainfall": 0.0,
-            "flight_condition": "allowed" if 4.2 < 10.0 else "forbidden",
-        },
-        "operation_logs": operation_logs,
-        "cost_metrics": cost_metrics,
-        "key_equipment": key_equipment,
-        "material_quality": material_quality,
-        "logistic_chokepoints": chokepoints,
-        "stripping_progress": stripping,
-        "equipment_oee": oee,
+        'safety_status': safety,
+        'asset_stats': asset_map,
+        'production_today': prod_stats,
+        'recent_alerts': recent,
+        'environment': {'wind_speed': 4.8 if phase != 'dispatch' else 6.1, 'visibility': 3800 if phase != 'dispatch' else 3200, 'pm25': 42 if phase in ['stable', 'precursor'] else 51, 'rainfall': 0.0, 'flight_condition': 'allowed'},
+        'operation_logs': operation_logs,
+        'cost_metrics': [{'name': '炸药', 'value': 38, 'color': '#00f0ff', 'cost': '0.12'}, {'name': '中保', 'value': 36, 'color': '#3a86ff', 'cost': '0.20'}, {'name': '工资', 'value': 34, 'color': '#ff9900', 'cost': '0.12'}, {'name': '柴油', 'value': 31, 'color': '#ccd6f6', 'cost': '0.12'}],
+        'key_equipment': [{'name': '1#PSZ', 'status': '正常', 'status_class': 'text-green', 'current': '22.8A'}, {'name': '2#PSZ', 'status': '检修待命' if phase == 'dispatch' else '正常', 'status_class': 'warning-text' if phase == 'dispatch' else 'text-green', 'current': '-' if phase == 'dispatch' else '21.9A'}, {'name': '3#PSZ', 'status': '正常', 'status_class': 'text-green', 'current': '20.6A'}],
+        'material_quality': [{'name': 'CaO', 'value': '52.1', 'trend': '-', 'range': '45.50-53.50', 'status': 'normal'}, {'name': 'MgO', 'value': '0.28', 'trend': '↑' if phase in ['warning', 'dispatch'] else '-', 'range': '0.20-0.50', 'status': 'warning' if phase in ['warning', 'dispatch'] else 'normal'}, {'name': 'SO3', 'value': '0.23', 'trend': '-', 'range': '0.20-0.26', 'status': 'normal'}],
+        'logistic_chokepoints': chokepoints,
+        'stripping_progress': {'current_m3': round(current * 2.35, 1), 'target_m3': 15000.0, 'ratio': '2.35:1'},
+        'equipment_oee': {'availability': availability, 'performance': performance, 'quality': quality, 'oee_score': round(availability * performance * quality / 10000, 1)},
     }
 
 

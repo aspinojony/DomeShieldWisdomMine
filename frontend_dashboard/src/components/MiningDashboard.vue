@@ -1,5 +1,6 @@
 <template>
   <div class="app-wrapper">
+    <div class="debug-version-badge">UI-V2-0330-0059</div>
     <div class="dashboard-grid">
       <!-- 左侧监控列表 (折叠式) -->
       <aside class="side-panel tech-panel left-panel">
@@ -60,24 +61,33 @@
         </div>
       </div>
 
-      <!-- 4: 2024吨成本 -->
+      <!-- 4: AI边坡风险摘要 -->
       <div class="left-section" style="border-top: 1px dashed rgba(0,240,255,0.2);">
         <div class="panel-header" style="justify-content: space-between;">
            <div style="display:flex;align-items:center;">
               <div class="title-deco"></div>
-              <h2 class="glowing-text">2024吨成本</h2>
+              <h2 class="glowing-text">AI边坡风险摘要</h2>
            </div>
-           <span class="unit" style="font-size:0.7rem;color:#8892b0;">元/吨</span>
+           <span class="unit" style="font-size:0.7rem;color:#8892b0;">视觉研判</span>
         </div>
-        <div class="section-body cost-panel" style="display: flex; align-items: center; justify-content: space-around;">
-           <div ref="chartCost" class="echart-box" style="height: 120px; width: 120px;"></div>
-           <div class="cost-legend">
-              <div class="cl-row" v-for="(c, i) in miningSummary.cost_metrics" :key="i">
-                <i class="dot" :style="{ background: c.color }"></i>{{ c.name }} 
-                <strong :style="{ color: c.color }">{{ c.cost }}</strong> 
-                <span>{{ c.value }}%</span>
-              </div>
-           </div>
+        <div class="section-body" style="padding: 8px 10px; display: flex; flex-direction: column; gap: 8px;">
+          <div class="risk-mini-row">
+            <span>风险等级</span>
+            <strong :class="(latestVisionResult?.data?.alert_level || '').includes('安全') ? 'safe-text' : 'danger-text'">{{ latestVisionResult?.data?.alert_level || '待研判' }}</strong>
+          </div>
+          <div class="risk-mini-row">
+            <span>检出裂缝</span>
+            <strong>{{ latestVisionResult?.data?.anomalies_found ?? 0 }} 处</strong>
+          </div>
+          <div class="risk-mini-row">
+            <span>最大宽度</span>
+            <strong>{{ latestVisionResult?.data?.max_width_mm ?? 0 }} mm</strong>
+          </div>
+          <div class="risk-mini-row">
+            <span>推理耗时</span>
+            <strong>{{ latestVisionResult?.data?.processing_time_ms ?? 0 }} ms</strong>
+          </div>
+          <div class="risk-mini-note">建议动作：{{ (latestVisionResult?.data?.alert_level || '').includes('警报') ? '立即派发无人机复核与现场巡检工单' : '保持巡检频次并持续观测趋势' }}</div>
         </div>
       </div>
     </aside>
@@ -135,40 +145,37 @@
         <span class="status-badge"><i class="dot bg-green"></i> 无人机云台就绪</span>
       </div>
 
-      <!-- 空天指控中心 (悬浮于底部) -->
-      <div 
-        class="uav-command-center"
-        :class="{'uav-active-mode': activeUavCount > 0 || forceShowUav, 'uav-minimized': activeUavCount === 0 && !forceShowUav}"
-      >
-        <h3 class="uav-title" @click="forceShowUav = !forceShowUav">
-           空天无人机指控集群 
-          <span v-if="activeUavCount > 0" class="mini-status-badge">任务中 ({{ activeUavCount }})</span>
-          <span v-else class="mini-status-badge inactive">待命</span>
-          <span class="uav-toggle-hint">{{ (activeUavCount > 0 || forceShowUav) ? '▼' : '▲' }}</span>
-        </h3>
-        <div class="uav-fleet-list">
-          <div 
-            v-for="drone in uavFleet" 
-            :key="drone.id" 
-            class="uav-card"
-            :class="{'uav-active': drone.status !== '待命闲置' && drone.status !== '已返航'}"
-          >
-            <div class="uav-info">
-              <span class="uav-id">{{ drone.id }}</span>
-              <span class="uav-type">{{ drone.type }}</span>
-            </div>
-            <div class="uav-state">
-              <span class="uav-status-badge" :class="getStatusClass(drone.status)">
-                {{ drone.status }}
-              </span>
-              <span class="uav-target" v-if="drone.target"> 锁定: {{ drone.target }}</span>
-            </div>
-            
-            <!-- 进度条模拟飞行 -->
-            <div class="uav-progress-bar" v-if="drone.status !== '待命闲置' && drone.status !== '已返航'">
-               <div class="uav-progress-fill" :style="{ width: drone.progress + '%' }"></div>
-            </div>
-          </div>
+      <!-- 顶部运营总览（中国矿山汇报口径） -->
+      <div class="ops-overview-bar glass-card">
+        <div class="ops-kpi-item">
+          <span class="ops-kpi-label">今日产量</span>
+          <strong class="ops-kpi-value">{{ miningSummary.production_today.current }}</strong>
+          <small class="ops-kpi-unit">吨</small>
+        </div>
+        <div class="ops-kpi-item">
+          <span class="ops-kpi-label">班次完成率</span>
+          <strong class="ops-kpi-value">{{ completionRate }}%</strong>
+          <small class="ops-kpi-unit">目标 {{ miningSummary.production_today.target }}</small>
+        </div>
+        <div class="ops-kpi-item">
+          <span class="ops-kpi-label">在线设备</span>
+          <strong class="ops-kpi-value">{{ totalOnlineDevices }}/{{ totalDevices }}</strong>
+          <small class="ops-kpi-unit">台</small>
+        </div>
+        <div class="ops-kpi-item">
+          <span class="ops-kpi-label">未处理告警</span>
+          <strong class="ops-kpi-value danger-text">{{ unhandledAlerts }}</strong>
+          <small class="ops-kpi-unit">条</small>
+        </div>
+        <div class="ops-kpi-item">
+          <span class="ops-kpi-label">最大裂缝宽度</span>
+          <strong class="ops-kpi-value">{{ maxCrackWidth }}</strong>
+          <small class="ops-kpi-unit">mm</small>
+        </div>
+        <div class="ops-kpi-item">
+          <span class="ops-kpi-label">飞行条件</span>
+          <strong class="ops-kpi-value" :class="flightCondition === '受限' ? 'warning-text' : 'safe-text'">{{ flightCondition }}</strong>
+          <small class="ops-kpi-unit">风速 {{ miningSummary.environment.wind_speed || 0 }}m/s</small>
         </div>
       </div>
 
@@ -188,10 +195,10 @@
       </div>
     </section>
 
-    <!-- 底部指控台：全局物流与核心效率 -->
+    <!-- 底部指控台：四栏编排 -->
     <aside class="side-panel tech-panel bottom-panel">
-      <!-- OEE 全局分析 -->
-      <div class="bottom-section" style="flex: 1.2;">
+      <!-- 1) OEE 全局分析 -->
+      <div class="bottom-section" style="min-width: 0;">
         <div class="panel-header" style="display:flex; justify-content: space-between; align-items: center;">
            <h2 class="glowing-text">OEE 综合效率</h2>
            <span class="text-green" style="font-weight: bold; font-size: 1.1rem; text-shadow: 0 0 5px #00ff88;">{{ miningSummary.equipment_oee?.oee_score }}%</span>
@@ -214,9 +221,9 @@
            </div>
         </div>
       </div>
-      
-      <!-- 物流卡口 (防癌点) -->
-      <div class="bottom-section" style="flex: 1.5; border-left: 1px dashed rgba(0,240,255,0.2);">
+
+      <!-- 2) 物流卡口 -->
+      <div class="bottom-section" style="min-width: 0;">
         <div class="panel-header">
            <h2 class="glowing-text">物流拥堵卡口预警</h2>
         </div>
@@ -229,37 +236,67 @@
         </div>
       </div>
 
-      <!-- 产量与剥离量双核心 -->
-      <div class="bottom-section" style="flex: 1.5; border-left: 1px dashed rgba(0,240,255,0.2);">
+      <!-- 3) 核心采剥进度 -->
+      <div class="bottom-section" style="min-width: 0;">
         <div class="panel-header">
            <h2 class="glowing-text">核心采剥进度</h2>
         </div>
-        <div class="section-body production-panel">
-           <div class="gauge-card">
-              <div ref="chartYield" class="echart-box" style="height: 120px; width: 120px;"></div>
-           </div>
-           <div class="gauge-text-group">
-              <div class="gauge-info">
-                 <div class="g-title">{{ miningSummary.production_today.current }} <small>采矿量 (吨)</small></div>
-                 <div class="g-val color-green">
-                    <svg width="100" height="30" viewBox="0 0 100 30">
-                       <rect x="0" y="10" width="100" height="10" rx="5" fill="rgba(255,255,255,0.1)"></rect>
-                       <rect x="0" y="10" :width="Math.min(100, (miningSummary.production_today.current/miningSummary.production_today.target)*100)" height="10" rx="5" fill="#00ff88"></rect>
-                    </svg>
-                 </div>
-                 <div class="g-sub">目标: {{ miningSummary.production_today.target }} 吨</div>
+        <div class="section-body production-panel" style="display:flex; flex-direction:column; gap:10px;">
+          <div class="gauge-info">
+            <div class="g-title">{{ miningSummary.production_today.current }} <small>采矿量 (吨)</small></div>
+            <div class="g-val color-green">
+              <svg width="100%" height="22" viewBox="0 0 100 22" preserveAspectRatio="none">
+                <rect x="0" y="6" width="100" height="10" rx="5" fill="rgba(255,255,255,0.12)"></rect>
+                <rect x="0" y="6" :width="Math.min(100, (miningSummary.production_today.current/miningSummary.production_today.target)*100)" height="10" rx="5" fill="#00ff88"></rect>
+              </svg>
+            </div>
+            <div class="g-sub">目标: {{ miningSummary.production_today.target }} 吨</div>
+          </div>
+
+          <div class="gauge-info">
+            <div class="g-title">{{ miningSummary.stripping_progress?.current_m3 || 0 }} <small>剥离进度 (m³)</small></div>
+            <div class="g-val color-orange">
+              <svg width="100%" height="22" viewBox="0 0 100 22" preserveAspectRatio="none">
+                <rect x="0" y="6" width="100" height="10" rx="5" fill="rgba(255,255,255,0.12)"></rect>
+                <rect x="0" y="6" :width="Math.min(100, ((miningSummary.stripping_progress?.current_m3 || 0)/(miningSummary.stripping_progress?.target_m3 || 1))*100)" height="10" rx="5" fill="#ff9f00"></rect>
+              </svg>
+            </div>
+            <div class="g-sub">实时剥采比: {{ miningSummary.stripping_progress?.ratio }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4) 空天无人机指控集群 -->
+      <div class="bottom-section" style="min-width: 0;">
+        <div class="panel-header" style="display:flex; justify-content: space-between; align-items: center;">
+          <h2 class="glowing-text">空天无人机指控集群</h2>
+          <span v-if="activeUavCount > 0" class="mini-status-badge">任务中 ({{ activeUavCount }})</span>
+          <span v-else class="mini-status-badge inactive">待命</span>
+        </div>
+        <div class="section-body" style="padding: 8px 10px; overflow-y: auto;">
+          <div class="uav-fleet-list" style="display:flex; flex-direction:column; gap:8px;">
+            <div
+              v-for="drone in uavFleet"
+              :key="drone.id"
+              class="uav-card"
+              :class="{'uav-active': drone.status !== '待命闲置' && drone.status !== '已返航'}"
+            >
+              <div class="uav-info">
+                <span class="uav-id">{{ drone.id }}</span>
+                <span class="uav-type">{{ drone.type }}</span>
               </div>
-              <div class="gauge-info">
-                 <div class="g-title">{{ miningSummary.stripping_progress?.current_m3 || 0 }} <small>剥离进度 (m³)</small></div>
-                 <div class="g-val color-orange">
-                     <svg width="100" height="30" viewBox="0 0 100 30">
-                       <rect x="0" y="10" width="100" height="10" rx="5" fill="rgba(255,255,255,0.1)"></rect>
-                       <rect x="0" y="10" :width="Math.min(100, ((miningSummary.stripping_progress?.current_m3 || 0)/(miningSummary.stripping_progress?.target_m3 || 1))*100)" height="10" rx="5" fill="#ff9f00"></rect>
-                    </svg>
-                 </div>
-                 <div class="g-sub">实时剥采比: {{ miningSummary.stripping_progress?.ratio }}</div>
+              <div class="uav-state">
+                <span class="uav-status-badge" :class="getStatusClass(drone.status)">
+                  {{ drone.status }}
+                </span>
+                <span class="uav-target" v-if="drone.target">锁定: {{ drone.target }}</span>
               </div>
-           </div>
+              <div class="uav-progress-bar" v-if="drone.status !== '待命闲置' && drone.status !== '已返航'">
+                <div class="uav-progress-fill" :style="{ width: drone.progress + '%' }"></div>
+              </div>
+            </div>
+            <div v-if="!uavFleet || uavFleet.length === 0" class="empty-hint" style="padding:8px 0;">暂无无人机数据</div>
+          </div>
         </div>
       </div>
     </aside>
@@ -346,6 +383,21 @@ const aiEvidenceChart = ref(null)
 let aiEvidenceChartInstance = null
 const forceShowUav = ref(false)
 const activeUavCount = computed(() => uavFleet.value.filter(d => d.status !== '待命闲置' && d.status !== '已返航').length)
+const totalOnlineDevices = computed(() => Object.values(miningSummary.value.asset_stats || {}).reduce((acc, v) => acc + Number(v?.online || 0), 0))
+const totalDevices = computed(() => Object.values(miningSummary.value.asset_stats || {}).reduce((acc, v) => acc + Number(v?.total || 0), 0))
+const completionRate = computed(() => {
+  const cur = Number(miningSummary.value.production_today?.current || 0)
+  const tgt = Number(miningSummary.value.production_today?.target || 1)
+  return Math.max(0, Math.min(999, Number(((cur / tgt) * 100).toFixed(1))))
+})
+const unhandledAlerts = computed(() => Number((miningSummary.value.recent_alerts || []).length || 0))
+const maxCrackWidth = computed(() => Number(latestVisionResult.value?.data?.max_width_mm || 0))
+const flightCondition = computed(() => {
+  const wind = Number(miningSummary.value.environment?.wind_speed || 0)
+  const visibility = Number(miningSummary.value.environment?.visibility || 0)
+  if (wind >= 8 || visibility <= 3000) return '受限'
+  return '可飞'
+})
 // 保存从业务后端获取的设备元数据
 let deviceRegistry = {}
 
@@ -665,9 +717,10 @@ const fetchUavStatus = async () => {
 // 抓取最新视觉分析结果
 const fetchLatestVision = async () => {
   try {
-    const res = await axios.get(`${API_AI_BASE}/vision/latest`)
-    if (res.data.status === 'success') {
-      latestVisionResult.value = res.data.data
+    const res = await axios.get(`${API_VISION_BASE}/vision/latest`)
+    const payload = res?.data?.data || res?.data
+    if (payload) {
+      latestVisionResult.value = { data: payload }
     }
   } catch (err) {
     console.error("视觉结果获取失败: ", err)
@@ -1054,8 +1107,9 @@ const toggleFence = () => {
 
 .bottom-panel {
   grid-area: bottom;
-  display: flex;
-  flex-direction: row !important; /* override tech-panel's column */
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
   overflow: hidden;
 }
 
@@ -2071,3 +2125,323 @@ const toggleFence = () => {
 .text-white { color: #ffffff; }
 .text-green { color: #00ff88; }
 </style>
+
+
+/* bottom-uav-panel-tune */
+.bottom-panel .uav-card {
+  padding: 8px 10px;
+}
+.bottom-panel .uav-info {
+  margin-bottom: 6px;
+}
+.bottom-panel .uav-target {
+  font-size: 12px;
+  color: #9fb3c8;
+}
+.bottom-panel .uav-progress-bar {
+  margin-top: 6px;
+}
+
+
+/* bottom-density-align */
+.bottom-panel {
+  align-items: stretch;
+}
+
+.bottom-panel .bottom-section {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.bottom-panel .panel-header {
+  height: 46px;
+  min-height: 46px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(0, 240, 255, 0.16);
+}
+
+.bottom-panel .panel-header h2 {
+  font-size: 0.98rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.bottom-panel .section-body {
+  flex: 1;
+  min-height: 0;
+  padding: 8px 10px !important;
+  overflow-y: auto;
+}
+
+.bottom-panel .oee-bar-row,
+.bottom-panel .chokepoint-row {
+  min-height: 28px;
+  align-items: center;
+}
+
+.bottom-panel .oee-label,
+.bottom-panel .oee-val,
+.bottom-panel .cp-loc,
+.bottom-panel .cp-wait,
+.bottom-panel .cp-time {
+  font-size: 12px;
+}
+
+.bottom-panel .production-panel {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  align-items: center;
+  gap: 8px;
+}
+
+.bottom-panel .gauge-text-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bottom-panel .g-title {
+  font-size: 12px;
+  margin-bottom: 2px;
+}
+
+.bottom-panel .g-sub {
+  font-size: 11px;
+  color: #8aa0c0;
+}
+
+.bottom-panel .uav-fleet-list {
+  gap: 6px !important;
+}
+
+.bottom-panel .uav-card {
+  padding: 7px 8px;
+}
+
+.bottom-panel .uav-id { font-size: 12px; }
+.bottom-panel .uav-type,
+.bottom-panel .uav-target { font-size: 11px; }
+
+
+/* bottom-1px-alignment */
+.bottom-panel {
+  --bottom-left-pad: 12px;
+}
+
+.bottom-panel .panel-header {
+  padding-left: var(--bottom-left-pad) !important;
+  padding-right: 12px !important;
+}
+
+.bottom-panel .section-body {
+  padding-left: var(--bottom-left-pad) !important;
+  padding-right: 10px !important;
+}
+
+/* 标题起始位统一 */
+.bottom-panel .panel-header h2 {
+  margin-left: 0 !important;
+}
+
+/* OEE 数值基线 */
+.bottom-panel .oee-bar-row {
+  display: grid;
+  grid-template-columns: 72px 1fr 44px;
+  column-gap: 8px;
+  align-items: center;
+}
+.bottom-panel .oee-label {
+  text-align: left;
+}
+.bottom-panel .oee-val {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 物流栏三列固定栅格，数字对齐 */
+.bottom-panel .chokepoint-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  column-gap: 10px;
+  align-items: center;
+}
+.bottom-panel .cp-wait strong,
+.bottom-panel .cp-time strong,
+.bottom-panel .g-title,
+.bottom-panel .g-sub,
+.bottom-panel .uav-id,
+.bottom-panel .uav-target {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 采剥信息文本起始位锁定 */
+.bottom-panel .gauge-text-group {
+  padding-left: 0;
+}
+.bottom-panel .gauge-info {
+  margin-left: 0;
+}
+
+/* 无人机卡片左右边线与其它栏一致 */
+.bottom-panel .uav-card {
+  margin-left: 0;
+  margin-right: 0;
+}
+
+
+/* layout-v2-clean */
+.dashboard-grid {
+  grid-template-columns: 300px minmax(0, 1fr) !important;
+  grid-template-rows: minmax(0, 1fr) 230px !important;
+  gap: 8px !important;
+  padding: 8px !important;
+  padding-top: 68px !important;
+}
+
+.left-panel, .bottom-panel, .main-view {
+  border-radius: 10px;
+}
+
+/* 主视图做减法：去掉叠加干扰层 */
+.main-view::before {
+  background: transparent !important;
+}
+
+/* 临时隐藏高干扰配置面板，保留核心演示 */
+.calibration-panel,
+.point-manager-panel {
+  display: none !important;
+}
+
+/* 状态条缩到右上，减少遮挡 */
+.status-overlay {
+  top: 10px !important;
+  right: 10px !important;
+  left: auto !important;
+  gap: 6px !important;
+  z-index: 20 !important;
+}
+.status-badge {
+  padding: 4px 8px !important;
+  font-size: 12px !important;
+  border-radius: 6px !important;
+}
+
+/* 无人机任务条固定左上，不压中间视野 */
+.uav-mission-strip {
+  top: 10px !important;
+  left: 10px !important;
+  right: auto !important;
+  width: 360px !important;
+  z-index: 20 !important;
+}
+
+/* 操作按钮靠左下，环境开关靠右下 */
+.cinematic-pov-controls {
+  left: 10px !important;
+  bottom: 10px !important;
+  right: auto !important;
+}
+.env-control-panel {
+  right: 10px !important;
+  bottom: 10px !important;
+}
+
+/* 视觉结果卡片缩小并靠右中，避免遮挡 */
+.uav-vision-feed {
+  right: 10px !important;
+  bottom: 64px !important;
+  width: 300px !important;
+  max-height: 220px !important;
+  z-index: 18 !important;
+}
+
+/* 底部四栏统一外观 */
+.bottom-panel {
+  gap: 8px !important;
+}
+.bottom-panel .bottom-section {
+  border: 1px solid rgba(0, 240, 255, 0.14) !important;
+  border-radius: 8px !important;
+  background: rgba(8, 16, 30, 0.92) !important;
+}
+.bottom-panel .panel-header {
+  height: 44px !important;
+  min-height: 44px !important;
+  padding: 0 10px !important;
+}
+.bottom-panel .section-body {
+  padding: 8px 10px !important;
+}
+
+/* 左侧栏也统一紧凑节奏 */
+.left-panel .panel-header {
+  padding: 10px 12px !important;
+}
+.left-panel .section-body {
+  padding: 6px 10px !important;
+}
+
+
+/* ops-overview-design */
+.ops-overview-bar {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  right: 12px;
+  z-index: 18;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  padding: 8px 10px;
+}
+.ops-kpi-item {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.ops-kpi-label { font-size: 11px; color: #8ea3be; }
+.ops-kpi-value { font-size: 16px; color: #e8f0ff; line-height: 1.2; }
+.ops-kpi-unit { font-size: 11px; color: #91a4be; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.main-view .status-overlay { top: 74px !important; }
+.main-view .uav-vision-feed { bottom: 10px !important; }
+
+.risk-mini-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #9fb2c9;
+}
+.risk-mini-row strong { color: #fff; font-variant-numeric: tabular-nums; }
+.risk-mini-note {
+  margin-top: 2px;
+  padding-top: 6px;
+  border-top: 1px dashed rgba(255,255,255,0.12);
+  color: #aabbd0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+
+.debug-version-badge {
+  position: fixed;
+  top: 6px;
+  left: 8px;
+  z-index: 99999;
+  padding: 2px 8px;
+  font-size: 12px;
+  border-radius: 4px;
+  background: #ef4444;
+  color: #fff;
+  font-weight: 700;
+}

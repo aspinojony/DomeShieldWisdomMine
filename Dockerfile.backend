@@ -5,16 +5,18 @@ FROM python:3.10-slim-bullseye
 WORKDIR /app
 
 # 安装必要的系统底层依赖 (OpenCV 等 C++ 库所需)
-RUN apt-get update && apt-get install -y \
-    libgl1-mesa-glx \
-    libglib2.0-0 \
-    gcc \
-    python3-dev \
-    && rm -rf /var/lib/apt/lists/*
+# 兼容网络波动：切换清华镜像 + apt 重试
+RUN set -eux;     echo 'Acquire::Retries "6"; Acquire::http::Timeout "30"; Acquire::https::Timeout "30";' > /etc/apt/apt.conf.d/99-retry;     sed -i 's|http://deb.debian.org|https://mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list;     apt-get update;     apt-get install -y --no-install-recommends       ca-certificates       libgl1-mesa-glx       libglib2.0-0       gcc       python3-dev;     rm -rf /var/lib/apt/lists/*
+
 
 # 包括 FastAPI全家桶, 物联网模块, 数据库 ORM, 全套 AI 库
-RUN pip install --no-cache-dir fastapi uvicorn sqlalchemy paho-mqtt influxdb-client kafka-python "python-jose[cryptography]" passlib bcrypt pandas numpy scikit-learn python-multipart \
-    && pip install --no-cache-dir torch torchvision torchaudio ultralytics requests
+# 提高下载稳定性（arm64 大包如 torch 容易超时）
+ENV PIP_DEFAULT_TIMEOUT=1000 PIP_RETRIES=10
+RUN set -eux; \
+    pip install --no-cache-dir fastapi uvicorn sqlalchemy paho-mqtt influxdb-client kafka-python "python-jose[cryptography]" passlib bcrypt pandas numpy scikit-learn python-multipart requests pyyaml psutil opencv-python matplotlib polars ultralytics-thop; \
+    pip install --no-cache-dir --default-timeout=1000 --retries 10 --index-url https://download.pytorch.org/whl/cpu torch torchvision torchaudio; \
+    for i in 1 2 3 4 5; do pip install --no-cache-dir --no-deps ultralytics && break || sleep 8; done
+
 
 # 拷贝后端和 AI 服务代码（这样 ai_prediction_engine 等才能跨文件夹互相引用）
 COPY backend_service /app/backend_service
