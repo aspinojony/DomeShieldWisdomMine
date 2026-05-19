@@ -1,4 +1,4 @@
-# 穹盾智矿 Windows 安装包构建脚本
+﻿# 穹盾智矿 Windows 安装包构建脚本
 # 用法（项目根目录下）：
 #   powershell -ExecutionPolicy Bypass -File windows-installer\build.ps1
 #
@@ -6,6 +6,9 @@
 # 输出：windows-installer\output\穹盾智矿-Setup-<version>.exe
 
 $ErrorActionPreference = "Stop"
+try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
+$OutputEncoding = [System.Text.Encoding]::UTF8
+
 $root = (Resolve-Path "$PSScriptRoot\..").Path
 $installerDir = "$root\windows-installer"
 $outDir = "$installerDir\output"
@@ -14,6 +17,35 @@ $buildVenv = "$installerDir\.build-venv"
 $version = "1.0.0"
 Write-Host "==== 穹盾智矿 v$version 打包流程 ====" -ForegroundColor Cyan
 Write-Host "项目根: $root"
+
+# ---- 0. 占位图标 ----
+$iconPath = "$installerDir\assets\icon.ico"
+if (-not (Test-Path $iconPath)) {
+    Write-Host "`n[0/5] 生成占位图标 icon.ico..." -ForegroundColor Yellow
+    Add-Type -AssemblyName System.Drawing
+    $bmp = New-Object System.Drawing.Bitmap(64, 64)
+    $g = [System.Drawing.Graphics]::FromImage($bmp)
+    $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+    $g.Clear([System.Drawing.Color]::FromArgb(0, 15, 23, 42))
+    $brush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(255, 56, 189, 248))
+    $pen = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(255, 15, 23, 42), 2)
+    $points = @(
+        (New-Object System.Drawing.PointF(32, 4)),
+        (New-Object System.Drawing.PointF(58, 14)),
+        (New-Object System.Drawing.PointF(58, 36)),
+        (New-Object System.Drawing.PointF(32, 60)),
+        (New-Object System.Drawing.PointF(6, 36)),
+        (New-Object System.Drawing.PointF(6, 14))
+    )
+    $g.FillPolygon($brush, $points)
+    $g.DrawPolygon($pen, $points)
+    $g.Dispose()
+    $icon = [System.Drawing.Icon]::FromHandle($bmp.GetHicon())
+    $fs = [System.IO.File]::Create($iconPath)
+    $icon.Save($fs)
+    $fs.Close()
+    $bmp.Dispose()
+}
 
 # ---- 1. 前端构建 ----
 Write-Host "`n[1/5] 构建前端..." -ForegroundColor Yellow

@@ -1,0 +1,92 @@
+name: Build Windows Installer
+
+on:
+  # 在 GitHub 网页右上角点 "Run workflow" 手动触发
+  workflow_dispatch:
+  # 打标签 v1.0.0 之类时也会自动构建
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend_dashboard/package-lock.json
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          # 把 ISCC.exe 加入 PATH（choco 装到默认位置）
+          echo "C:\Program Files (x86)\Inno Setup 6" >> $env:GITHUB_PATH
+
+      - name: Show versions
+        shell: pwsh
+        run: |
+          python --version
+          node --version
+          npm --version
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /? 2>&1 | Select-Object -First 3
+
+      - name: Run build script
+        shell: pwsh
+        run: |
+          powershell -ExecutionPolicy Bypass -File windows-installer\build.ps1
+
+      - name: List output
+        if: always()
+        shell: pwsh
+        run: |
+          Write-Host "--- output/ ---"
+          if (Test-Path windows-installer\output) {
+            Get-ChildItem windows-installer\output -Recurse | Format-Table FullName, Length
+          } else {
+            Write-Host "output 目录不存在"
+          }
+          Write-Host "--- dist/DomeShield/ ---"
+          if (Test-Path windows-installer\dist\DomeShield) {
+            (Get-ChildItem windows-installer\dist\DomeShield -Recurse | Measure-Object -Sum Length).Sum / 1MB | ForEach-Object { "总大小: {0:N1} MB" -f $_ }
+          }
+
+      - name: Upload installer (.exe)
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 穹盾智矿-Windows-Installer
+          path: windows-installer/output/*.exe
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload PyInstaller logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: |
+            windows-installer/build/**/warn-*.txt
+            windows-installer/build/**/*.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Create GitHub Release on tag
+        if: startsWith(github.ref, 'refs/tags/v') && success()
+        uses: softprops/action-gh-release@v2
+        with:
+          files: windows-installer/output/*.exe
+          generate_release_notes: true
