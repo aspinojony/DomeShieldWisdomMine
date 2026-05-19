@@ -791,6 +791,150 @@ def get_production_kpi(db: Session = Depends(get_db)):
     }
 
 
+@app.get("/api/v1/ops/energy-optimization", tags=["能源优化"])
+def get_energy_optimization(db: Session = Depends(get_db)):
+    """获取节能优化面板数据"""
+    records = (
+        db.query(ProductionRecord)
+        .order_by(ProductionRecord.timestamp.desc())
+        .limit(7)
+        .all()
+    )
+
+    total_tonnage = sum(r.tonnage for r in records)
+    total_fuel = sum(r.fuel_consumption for r in records)
+    avg_efficiency = sum(r.efficiency for r in records) / len(records) if records else 0
+    active_vehicle_count = records[0].active_vehicles if records else 0
+
+    kwh_per_ton = round(total_fuel / total_tonnage, 2) if total_tonnage else 2.71
+    projected_savings = 12.5 if avg_efficiency < 85 else 8.4
+    energy_score = max(62, round(100 - (kwh_per_ton - 2.4) * 20 - max(1, round(active_vehicle_count * 0.2)) * 3))
+
+    zones = [
+        {
+            "id": "ZONE-01",
+            "name": "主运输线",
+            "type": "运输优化",
+            "priority": "high",
+            "priorityText": "重要",
+            "saving": "预计节能 8.6%",
+            "status": "空转偏高",
+            "desc": "通过重排矿卡进出场顺序，降低主运输线待机和空载回程耗能。",
+        },
+        {
+            "id": "ZONE-02",
+            "name": "破碎站 CRS-02",
+            "type": "负荷平衡",
+            "priority": "medium",
+            "priorityText": "一般",
+            "saving": "预计节能 5.2%",
+            "status": "峰值波动",
+            "desc": "将高负载破碎任务移入低谷时段，平滑瞬时功率峰值。",
+        },
+        {
+            "id": "ZONE-03",
+            "name": "边坡巡检区",
+            "type": "设备节电",
+            "priority": "low",
+            "priorityText": "低",
+            "saving": "预计节能 3.4%",
+            "status": "可下调频率",
+            "desc": "非告警窗口切换节能采样频率，降低边缘计算与传感器待机耗电。",
+        },
+    ]
+
+    strategies = [
+        {
+            "id": "ENG-001",
+            "title": "主运输线空转压降",
+            "zone": "主运输线",
+            "type": "运输优化",
+            "priority": "high",
+            "saving": "8.6%",
+            "desc": "调整矿卡侧线装载与排队顺序，缩短主线等待时间，减少怠速损耗。",
+            "plan": ["减少主线待机车辆 2 台", "将 AUT-003 / AUT-005 改派至侧线", "10 分钟后复查平均等待时长"],
+        },
+        {
+            "id": "ENG-002",
+            "title": "破碎站峰谷错峰",
+            "zone": "CRS-02",
+            "type": "负荷平衡",
+            "priority": "medium",
+            "saving": "5.2%",
+            "desc": "把高功率破碎任务切换到低谷运行窗口，避免瞬时负载过高。",
+            "plan": ["延后高功率破碎任务 15 分钟", "优先清理已缓存矿石", "观察峰值负荷回落情况"],
+        },
+        {
+            "id": "ENG-003",
+            "title": "巡检链路低功耗",
+            "zone": "边坡巡检区",
+            "type": "采集节电",
+            "priority": "low",
+            "saving": "3.4%",
+            "desc": "对稳定区域降低巡检频率，同时保留高风险点位实时上报。",
+            "plan": ["巡检间隔从 30 秒调整至 90 秒", "保留高风险传感器实时上报", "告警恢复后自动切回高频模式"],
+        },
+    ]
+
+    timeline = [
+        {"id": 1, "time": "01:04", "action": "识别能耗异常", "target": "主运输线空转率升高"},
+        {"id": 2, "time": "01:09", "action": "生成节能建议", "target": "建议切换两台矿卡至侧线"},
+        {"id": 3, "time": "01:12", "action": "策略待下发", "target": "等待值班长确认节能策略"},
+    ]
+
+    electricity = round(total_tonnage * 1.18 + active_vehicle_count * 9.6, 2) if total_tonnage else 1080.0
+    fuel = round(total_fuel, 2)
+    peak_load = min(100, round(58 + (active_vehicle_count * 1.9) + (100 - avg_efficiency) * 0.6))
+    idle_loss = min(100, round(max(12, active_vehicle_count * 2.4)))
+
+    return {
+        "energyMetrics": {
+            "shiftEnergy": round(total_fuel * 3.6 or 2860),
+            "energyDelta": round(max(1.0, 100 - energy_score) / 2, 1),
+            "kwhPerTon": kwh_per_ton,
+            "targetKwhPerTon": 2.4,
+            "idleVehicles": max(1, round(active_vehicle_count * 0.2)),
+            "projectedSavings": projected_savings,
+            "energyScore": energy_score,
+        },
+        "energyBreakdown": {
+            "electricity": electricity,
+            "fuel": fuel,
+            "peakLoad": peak_load,
+            "idleLoss": idle_loss,
+            "unitCost": round((electricity * 0.82 + fuel * 1.35) / 1000, 2),
+        },
+        "deviceGroups": [
+            {"name": "运输车队", "load": min(100, 45 + active_vehicle_count * 3), "status": "运行中", "saving": "2.8%"},
+            {"name": "破碎站", "load": peak_load, "status": "高负荷", "saving": "5.2%"},
+            {"name": "巡检链路", "load": max(18, 36 - int(avg_efficiency // 10)), "status": "节能模式", "saving": "3.4%"},
+            {"name": "供配电节点", "load": min(100, 52 + int(total_tonnage // 100)), "status": "平稳", "saving": "1.6%"},
+        ],
+        "rules": [
+            {"id": "RULE-01", "when": "运输空载率 > 35%", "then": "下调车队巡航速度并重排装载顺序", "level": "high"},
+            {"id": "RULE-02", "when": "破碎站峰值负荷 > 70%", "then": "切换到低谷排程窗口", "level": "medium"},
+            {"id": "RULE-03", "when": "智能识别告警升高", "then": "自动提升巡检频率并保留高风险点位实时上报", "level": "critical"},
+        ],
+        "zones": zones,
+        "strategies": strategies,
+        "timeline": timeline,
+        "trendSeries": [
+            {"label": "00:00", "value": max(22, peak_load - 12)},
+            {"label": "00:10", "value": max(24, peak_load - 8)},
+            {"label": "00:20", "value": max(28, peak_load - 4)},
+            {"label": "00:30", "value": peak_load},
+            {"label": "00:40", "value": min(100, peak_load + 5)},
+            {"label": "00:50", "value": max(30, peak_load - 3)},
+        ],
+        "summary": {
+            "total_tonnage": round(total_tonnage, 2),
+            "total_fuel": round(total_fuel, 2),
+            "avg_efficiency": round(avg_efficiency, 2),
+            "active_vehicle_count": active_vehicle_count,
+        },
+    }
+
+
 @app.get("/api/v1/ops/fleet/status", tags=["生产运营"])
 def get_fleet_status(db: Session = Depends(get_db)):
     """获取车队实时状态 (位置、电量、作业环节)"""

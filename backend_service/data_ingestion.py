@@ -100,7 +100,7 @@ def on_message(client, userdata, msg):
 
 def start_backend_service():
     print("🚀 启动[穹盾智矿]后端数据入库服务...")
-    client = mqtt.Client("Backend_Data_Ingestion_Node")
+    client = mqtt.Client(client_id="Backend_Data_Ingestion_Node", callback_api_version=mqtt.CallbackAPIVersion.VERSION1)
     client.on_connect = on_connect
     client.on_message = on_message
 

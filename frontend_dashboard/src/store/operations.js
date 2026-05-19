@@ -25,6 +25,29 @@ const mockLeaderboard = [
   { vehicle_id: 'AUT-005', total_tonnage: 810 }
 ]
 
+function normalizeTask(task, idx = 0) {
+  return {
+    id: task.id ?? idx + 1,
+    task_id: String(task.task_id ?? task.id ?? `TASK-${String(idx + 1).padStart(3, '0')}`),
+    load_zone: task.load_zone ?? task.loadZone ?? 'UNKNOWN',
+    unload_zone: task.unload_zone ?? task.unloadZone ?? 'UNKNOWN',
+    vehicle_id: task.vehicle_id ?? task.vehicle ?? 'UNKNOWN',
+    weight_tons: task.weight_tons ?? task.weightTons ?? 0,
+    status: task.status ?? '待处理',
+    priority: task.priority ?? 'normal'
+  }
+}
+
+function normalizeFleet(item) {
+  return {
+    device_id: item.device_id ?? item.id ?? 'UNKNOWN',
+    device_name: item.device_name ?? item.name ?? item.device_id ?? 'UNKNOWN',
+    location: item.location ?? { lng: 110.12, lat: 35.12 },
+    telemetry: item.telemetry ?? { speed: 0 },
+    status: item.status ?? 'online'
+  }
+}
+
 export const useOperationsStore = defineStore('operations', {
   state: () => ({
     kpi: { total_tonnage: 830.7, avg_efficiency: 81.85, total_fuel: 2250, active_vehicle_count: 10, daily_trend: [] },
@@ -34,8 +57,8 @@ export const useOperationsStore = defineStore('operations', {
     loadingError: false
   }),
   getters: {
-    displayFleet: (state) => state.fleet.length ? state.fleet : mockFleet,
-    displayTasks: (state) => state.activeTasks.length ? state.activeTasks : mockTasks,
+    displayFleet: (state) => (state.fleet.length ? state.fleet : mockFleet).map(normalizeFleet),
+    displayTasks: (state) => (state.activeTasks.length ? state.activeTasks : mockTasks).map(normalizeTask),
     displayLeaderboard: (state) => state.leaderboard.length ? state.leaderboard : mockLeaderboard,
     kpiSummary: (state) => ({
       '当日产量': state.kpi.total_tonnage + ' T',
@@ -55,8 +78,8 @@ export const useOperationsStore = defineStore('operations', {
         ])
         
         this.kpi = resKpi.data
-        this.fleet = resFleet.data
-        this.activeTasks = resTasks.data
+        this.fleet = Array.isArray(resFleet.data) ? resFleet.data.map(normalizeFleet) : []
+        this.activeTasks = Array.isArray(resTasks.data) ? resTasks.data.map(normalizeTask) : []
         this.leaderboard = resLeader.data.slice(0, 5)
         this.loadingError = false
       } catch (err) {

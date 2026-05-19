@@ -118,7 +118,8 @@ services:
       context: ..
       dockerfile: Dockerfile.backend
     container_name: msm_business_api
-    command: ["uvicorn", "backend_service.business_api:app", "--host", "0.0.0.0", "--port", "8002"]
+    working_dir: /app/backend_service
+    command: ["uvicorn", "business_api:app", "--host", "0.0.0.0", "--port", "8002"]
     ports:
       - "8002:8002"
     depends_on:

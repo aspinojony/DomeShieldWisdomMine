@@ -1,5 +1,5 @@
 <template>
-  <div class="app-container" v-if="authState.isLoggedIn">
+  <div class="app-container" v-if="authState.isLoggedIn && !isLoginPage">
     <header class="cyber-header">
       <div class="header-left">
         <div class="title-bg"></div>
@@ -17,10 +17,10 @@
           </button>
           <button 
             class="nav-btn" 
-            :class="{ active: route.path === '/production' }" 
-            @click="router.push('/production')"
+            :class="{ active: route.path === '/energy' }" 
+            @click="router.push('/energy')"
           >
-            <span>生产运营</span>
+            <span>能源优化</span>
           </button>
           <button 
             class="nav-btn" 
@@ -60,8 +60,8 @@
     </main>
   </div>
 
-  <!-- 未登录时直接渲染登录页 -->
-  <router-view v-else />
+  <!-- 登录页始终单独渲染，不受已登录状态影响 -->
+  <router-view v-if="isLoginPage || !authState.isLoggedIn" />
 </template>
 
 <script setup>
@@ -72,6 +72,7 @@ import { authState, logout } from './auth'
 const router = useRouter()
 const route = useRoute()
 const currentTime = ref('')
+const isLoginPage = computed(() => route.path === '/login')
 let timer = null
 
 const roleLabel = computed(() => {

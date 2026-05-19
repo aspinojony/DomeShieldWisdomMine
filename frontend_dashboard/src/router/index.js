@@ -19,13 +19,9 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
-    path: '/production',
-    redirect: '/product'
-  },
-  {
-    path: '/product',
-    name: 'Product',
-    component: () => import('../components/product/ProductWorkbench.vue'),
+    path: '/energy',
+    name: 'Energy',
+    component: () => import('../components/EnergyOptimization.vue'),
     meta: { requiresAuth: true }
   },
   {
@@ -86,8 +82,6 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   if (to.meta.requiresAuth && !authState.isLoggedIn) {
     next({ name: 'Login' })
-  } else if (to.name === 'Login' && authState.isLoggedIn) {
-    next({ name: 'Dashboard' })
   } else if (to.meta.requiresEngineer && !authState.isEngineer) {
     next({ name: 'Dashboard' }) // 非工程师强制返回大屏
   } else if (to.meta.requiresAdmin && !authState.isAdmin) {
