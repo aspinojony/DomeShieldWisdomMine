@@ -48,11 +48,15 @@ Name: "startup";     Description: "开机自启"; GroupDescription: "附加任�
 [Files]
 ; 整个 PyInstaller onedir 产物
 Source: "dist\DomeShield\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; 用户手册
+Source: "用户手册.html"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#AppName}";    Filename: "{app}\{#AppExeName}"
+Name: "{group}\使用手册";       Filename: "{app}\用户手册.html"
 Name: "{group}\卸载 {#AppName}"; Filename: "{uninstallexe}"
-Name: "{commondesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: desktopicon
+Name: "{commondesktop}\{#AppName}";     Filename: "{app}\{#AppExeName}"; Tasks: desktopicon
+Name: "{commondesktop}\穹盾智矿-使用手册"; Filename: "{app}\用户手册.html"; Tasks: desktopicon
 Name: "{commonstartup}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: startup
 
 [Run]

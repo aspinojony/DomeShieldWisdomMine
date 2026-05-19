@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>穹盾智矿 · 安装与使用手册</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+* { box-sizing: border-box; }
+body {
+  font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 32px 24px 80px;
+  color: #1f2937;
+  line-height: 1.75;
+  background: #fafafa;
+}
+h1 {
+  font-size: 32px;
+  color: #0f172a;
+  border-bottom: 3px solid #38bdf8;
+  padding-bottom: 12px;
+  margin-top: 0;
+}
+h2 {
+  font-size: 22px;
+  color: #0f172a;
+  margin-top: 48px;
+  padding: 8px 14px;
+  background: linear-gradient(90deg, #e0f2fe, transparent);
+  border-left: 4px solid #38bdf8;
+}
+h3 { font-size: 17px; color: #0369a1; margin-top: 28px; }
+h4 { font-size: 15px; color: #334155; margin-top: 20px; }
+p, li { font-size: 15px; }
+blockquote {
+  border-left: 4px solid #fbbf24;
+  background: #fef9c3;
+  padding: 12px 16px;
+  margin: 16px 0;
+  border-radius: 4px;
+  color: #713f12;
+}
+blockquote.danger {
+  border-color: #ef4444;
+  background: #fee2e2;
+  color: #7f1d1d;
+}
+blockquote.tip {
+  border-color: #10b981;
+  background: #d1fae5;
+  color: #064e3b;
+}
+code {
+  background: #f1f5f9;
+  color: #be185d;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: "SF Mono", Consolas, "Courier New", monospace;
+  font-size: 13px;
+}
+pre {
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 14px 18px;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-family: "SF Mono", Consolas, "Courier New", monospace;
+  font-size: 13px;
+  line-height: 1.6;
+}
+pre code { background: transparent; color: inherit; padding: 0; }
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 16px 0;
+  background: white;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  border-radius: 6px;
+  overflow: hidden;
+}
+th, td {
+  border-bottom: 1px solid #e5e7eb;
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 14px;
+}
+th { background: #f8fafc; font-weight: 600; color: #0f172a; }
+tr:last-child td { border-bottom: none; }
+.toc {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px 24px;
+  margin: 24px 0 40px;
+}
+.toc ol { padding-left: 24px; margin: 8px 0; }
+.toc a { color: #0369a1; text-decoration: none; }
+.toc a:hover { text-decoration: underline; }
+.step {
+  background: white;
+  border-left: 4px solid #38bdf8;
+  border-radius: 4px;
+  padding: 14px 18px;
+  margin: 12px 0;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+.step-num {
+  display: inline-block;
+  background: #38bdf8;
+  color: white;
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  text-align: center;
+  line-height: 24px;
+  font-weight: bold;
+  font-size: 13px;
+  margin-right: 8px;
+}
+.warn-box {
+  background: #fef3c7;
+  border: 2px solid #f59e0b;
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin: 20px 0;
+}
+.warn-box-title {
+  color: #92400e;
+  font-weight: bold;
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+.danger-box {
+  background: #fee2e2;
+  border: 2px solid #ef4444;
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin: 20px 0;
+}
+.danger-box-title { color: #991b1b; font-weight: bold; font-size: 16px; margin-bottom: 8px; }
+.ok-box {
+  background: #d1fae5;
+  border: 2px solid #10b981;
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin: 20px 0;
+}
+.ok-box-title { color: #065f46; font-weight: bold; font-size: 16px; margin-bottom: 8px; }
+kbd {
+  background: #e5e7eb;
+  border: 1px solid #9ca3af;
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-family: monospace;
+  font-size: 13px;
+  color: #1f2937;
+}
+hr { border: none; border-top: 1px solid #e2e8f0; margin: 48px 0; }
+footer {
+  text-align: center;
+  color: #94a3b8;
+  font-size: 13px;
+  margin-top: 60px;
+  padding-top: 24px;
+  border-top: 1px solid #e2e8f0;
+}
+</style>
+</head>
+<body>
+
+<h1>穹盾智矿 · 安装与使用手册</h1>
+
+<blockquote class="tip">
+<strong>这份手册写给第一次使用本软件的用户。</strong><br>
+全程<strong>双击鼠标即可完成</strong>，不需要懂电脑、不需要敲命令。<br>
+如果某一步看不懂，把当前屏幕拍照发给提供软件的人。
+</blockquote>
+
+<div class="toc">
+<strong>目录</strong>
+<ol>
+  <li><a href="#sec1">开始之前</a></li>
+  <li><a href="#sec2">第一次安装（约 5 分钟）</a></li>
+  <li><a href="#sec3">第一次启动（约 30 秒）</a></li>
+  <li><a href="#sec4">日常使用</a></li>
+  <li><a href="#sec5">关闭程序</a></li>
+  <li><a href="#sec6">常见问题</a></li>
+  <li><a href="#sec7">软件装在哪里 / 数据在哪里</a></li>
+  <li><a href="#sec8">卸载</a></li>
+</ol>
+</div>
+
+<h2 id="sec1">1. 开始之前</h2>
+
+<h3>1.1 这是什么软件</h3>
+<p><strong>穹盾智矿</strong> 是一套矿山安全监测演示系统，装好后会在你的电脑上打开一个<strong>网页大屏</strong>，
+展示矿山数据、AI 风险预警、无人机视觉识别等内容。</p>
+<p><strong>你只需要会用浏览器，剩下软件自己搞定。</strong></p>
+
+<h3>1.2 你需要准备什么</h3>
+<table>
+<tr><th>项目</th><th>要求</th></tr>
+<tr><td>操作系统</td><td>Windows 10 或 Windows 11（64 位）</td></tr>
+<tr><td>硬盘空间</td><td>至少 5 GB 空闲</td></tr>
+<tr><td>内存</td><td>至少 8 GB</td></tr>
+<tr><td>网络</td><td>安装时<strong>不需要联网</strong>；安装好后<strong>也不需要联网</strong>就能用</td></tr>
+<tr><td>安装包</td><td>一个名叫 <code>穹盾智矿-Setup-1.0.0.exe</code> 的文件（对方会发给你）</td></tr>
+</table>
+
+<blockquote class="danger">
+Windows 7 / Windows 8 / Mac / 手机 <strong>不能装</strong>，请不要尝试。
+</blockquote>
+
+<h3>1.3 重要提醒</h3>
+<ul>
+<li>整个软件包大约 <strong>1.5 GB</strong>，下载比较慢是正常的</li>
+<li><strong>安装过程中 Windows 会弹两次"警告"窗口</strong>，这是因为这是一个新软件，
+没有买微软的"通行证"，<strong>不是病毒</strong>，按本手册指引点击即可</li>
+<li>装完会在桌面留一个<strong>蓝色盾牌图标</strong></li>
+</ul>
+
+<h2 id="sec2">2. 第一次安装（约 5 分钟）</h2>
+
+<div class="step"><span class="step-num">1</span><strong>双击安装包</strong><br>
+找到对方发给你的 <code>穹盾智矿-Setup-1.0.0.exe</code> 文件，<strong>鼠标左键双击</strong>。</div>
+
+<div class="step"><span class="step-num">2</span><strong>处理"Windows 已保护你的电脑"蓝色窗口</strong>
+
+<div class="warn-box">
+<div class="warn-box-title">这一步最关键，必看</div>
+双击后，屏幕中央会弹出一个<strong>蓝色窗口</strong>，标题是 <strong>"Windows 已保护你的电脑"</strong>。<br>
+<strong>这是 Windows 的默认提示，不是病毒。</strong>
+</div>
+
+操作：
+<ol>
+<li>看到蓝色窗口后，<strong>先不要点右下角的"不运行"</strong></li>
+<li>在窗口中间找到一行小字：<strong>"更多信息"</strong> —— <strong>点击它</strong></li>
+<li>这时窗口会变长，多出一个 <strong>"仍要运行"</strong> 按钮</li>
+<li><strong>点击"仍要运行"</strong></li>
+</ol>
+
+<blockquote>如果你已经不小心点了"不运行"——没关系，重新双击 <code>穹盾智矿-Setup-1.0.0.exe</code> 再来一次。</blockquote>
+</div>
+
+<div class="step"><span class="step-num">3</span><strong>处理"用户账户控制"黄色窗口</strong><br>
+接下来 Windows 会再弹一个<strong>黄色窗口</strong>，问"是否允许此应用对你的设备进行更改？"<br><br>
+<strong>点"是"</strong>。</div>
+
+<div class="step"><span class="step-num">4</span><strong>跟着安装向导一路点"下一步"</strong>
+
+<table>
+<tr><th>屏幕显示</th><th>你要做</th></tr>
+<tr><td>选择语言</td><td>选"简体中文"，点"确定"</td></tr>
+<tr><td>欢迎页面</td><td>点"下一步"</td></tr>
+<tr><td>安装位置</td><td>不用改，直接点"下一步"</td></tr>
+<tr><td>附加任务</td><td><strong>保持"在桌面创建快捷方式"勾选</strong>，点"下一步"</td></tr>
+<tr><td>准备安装</td><td>点"安装"</td></tr>
+<tr><td>正在安装</td><td><strong>等 1-3 分钟</strong>，进度条会走完</td></tr>
+<tr><td>完成</td><td><strong>保持"立即启动 穹盾智矿"勾选</strong>，点"完成"</td></tr>
+</table>
+</div>
+
+<h2 id="sec3">3. 第一次启动（约 30 秒）</h2>
+<p>安装完成后，软件会<strong>自动启动</strong>。如果你不小心关掉了，<strong>双击桌面上的"穹盾智矿"图标</strong>也可以启动。</p>
+
+<h3>3.1 处理"Windows 防火墙"安全警告</h3>
+<p>启动后，屏幕会弹出一个<strong>白色窗口</strong>，标题是 <strong>"Windows 安全中心警报"</strong> 或 <strong>"Windows Defender 防火墙已阻止此应用的某些功能"</strong>。</p>
+
+<div class="danger-box">
+<div class="danger-box-title">操作（很重要，不要点错）</div>
+<ol>
+<li>看到窗口里有两个勾选框：<strong>"专用网络"</strong> 和 <strong>"公用网络"</strong></li>
+<li><strong>只勾"专用网络"</strong>（如果默认已经勾了，保持就行）</li>
+<li><strong>不要勾"公用网络"</strong></li>
+<li>点 <strong>"允许访问"</strong> 按钮</li>
+</ol>
+</div>
+
+<blockquote>这一步会弹<strong>最多 5 次</strong>（5 个内部服务各弹一次），每次都按同样操作即可。</blockquote>
+
+<h3>3.2 等待浏览器自动打开</h3>
+<p>防火墙都允许之后，<strong>等 20-30 秒</strong>，浏览器（Edge / Chrome）会自动打开，显示一个<strong>矿山大屏页面</strong>。</p>
+<p>如果 30 秒过去浏览器还没动，<strong>手动</strong>做以下任一操作：</p>
+<ul>
+<li><strong>方法一</strong>：找到右下角任务栏的<strong>蓝色盾牌小图标</strong>（在时间旁边那一堆图标里），
+鼠标<strong>右键</strong>点它，选 <strong>"打开大屏"</strong></li>
+<li><strong>方法二</strong>：自己打开浏览器，地址栏输入 <code>http://127.0.0.1:5173</code> 然后回车</li>
+</ul>
+
+<h3>3.3 登录系统</h3>
+<p>页面会显示登录框，<strong>第一次登录用默认账号</strong>：</p>
+<pre>用户名：admin
+密码：  admin123</pre>
+<p>进入后就能看到完整的矿山大屏了。</p>
+
+<h2 id="sec4">4. 日常使用</h2>
+<p>软件装好以后，<strong>每次想用就这样</strong>：</p>
+<ol>
+<li><strong>双击桌面上的"穹盾智矿"图标</strong></li>
+<li>等 15-20 秒，浏览器自动开</li>
+<li>登录后正常使用</li>
+</ol>
+<blockquote class="tip">不再需要点"仍要运行"，也不再有防火墙弹窗——那些只在<strong>第一次启动</strong>时出现。</blockquote>
+
+<h3>4.1 怎么知道软件在运行？</h3>
+<p>看屏幕右下角任务栏（时间旁边），如果有<strong>蓝色盾牌图标</strong>，就是软件正在运行中。</p>
+
+<h3>4.2 浏览器关了软件还在跑吗？</h3>
+<p>是的。<strong>关浏览器 ≠ 关软件</strong>。
+浏览器只是显示界面，<strong>真正的程序在后台</strong>。要彻底关掉，看下一节。</p>
+
+<h2 id="sec5">5. 关闭程序</h2>
+
+<h3>5.1 标准关法</h3>
+<ol>
+<li>找右下角任务栏的<strong>蓝色盾牌图标</strong></li>
+<li>鼠标<strong>右键</strong>点它</li>
+<li>在弹出菜单中选 <strong>"退出"</strong></li>
+<li>几秒钟后盾牌图标消失，程序就完全关闭了</li>
+</ol>
+
+<h3>5.2 实在找不到盾牌图标？</h3>
+<p>任务栏右下角可能折叠了。点任务栏上<strong>向上的小箭头 ∧</strong>展开所有隐藏图标，盾牌就在里面。</p>
+
+<h3>5.3 关机会自动关闭吗？</h3>
+<p>会的。直接关机 / 重启电脑不会有问题，<strong>不会损坏数据</strong>。</p>
+
+<h2 id="sec6">6. 常见问题</h2>
+
+<h3>Q1：双击图标没反应 / 浏览器没自动开</h3>
+<p><strong>原因</strong>：可能上一次没退干净，端口被占用。</p>
+<p><strong>解决</strong>：</p>
+<ol>
+<li>重启一下电脑</li>
+<li>重新双击桌面图标</li>
+<li>还是不行 → 拍照发给提供软件的人，附上下面 <a href="#sec7">第 7.2 节</a> 提到的日志文件</li>
+</ol>
+
+<h3>Q2：浏览器打开了但是页面空白 / 一直转圈</h3>
+<p><strong>原因</strong>：5 个后台服务还没全启动。</p>
+<p><strong>解决</strong>：</p>
+<ul>
+<li>在浏览器里按 <kbd>F5</kbd> 刷新一下</li>
+<li>或者<strong>等 30 秒</strong>再刷新</li>
+<li>还不行 → 退出程序 → 重新双击图标</li>
+</ul>
+
+<h3>Q3：登录提示密码错误</h3>
+<p>确认你输的是：</p>
+<ul>
+<li>用户名（区分大小写）：<code>admin</code>（不是 <code>Admin</code>）</li>
+<li>密码：<code>admin123</code></li>
+</ul>
+<p>如果之前自己改过密码忘了，可以<strong>彻底重置</strong>：</p>
+<ol>
+<li>退出程序</li>
+<li>按 <kbd>Win</kbd> + <kbd>R</kbd>，输入 <code>%APPDATA%\穹盾智矿</code> 回车</li>
+<li>删除里面的 <code>mining.db</code> 文件</li>
+<li>重新启动程序，账号回到默认 <code>admin/admin123</code></li>
+</ol>
+
+<h3>Q4：每次启动都要点"仍要运行"？</h3>
+<p>不会。"仍要运行"只在<strong>安装那一次</strong>出现，之后双击桌面图标就直接启动了。
+如果你每次都看到——说明你<strong>双击的是安装包</strong>，不是桌面那个<strong>蓝色盾牌图标</strong>，看清楚。</p>
+
+<h3>Q5：防火墙又弹了</h3>
+<p>如果换了网络（比如从家里 WiFi 换到公司）有可能再弹一次，按 <a href="#sec3">3.1 节</a> 同样处理。</p>
+
+<h3>Q6：能不能让它开机自动启动？</h3>
+<p>可以。<strong>安装时</strong>在"附加任务"那一步勾上"开机自启"即可。</p>
+<p>已经装好了想加自启：</p>
+<ol>
+<li>按 <kbd>Win</kbd> + <kbd>R</kbd> 输入 <code>shell:startup</code> 回车，会打开"启动"文件夹</li>
+<li>把桌面上的"穹盾智矿"快捷方式<strong>复制</strong>一份到这个文件夹里</li>
+<li>下次开机就会自动启动</li>
+</ol>
+<p>取消自启就把那份快捷方式删了。</p>
+
+<h3>Q7：电脑变慢 / 风扇狂转</h3>
+<p>软件运行时会占用一定资源（CPU 20-40%、内存 1-2 GB），属正常。如果一直高占用：</p>
+<ol>
+<li>退出程序</li>
+<li>不用时彻底关掉（<a href="#sec5">第 5 节</a>）</li>
+</ol>
+
+<h3>Q8：界面显示乱码 / 显示英文</h3>
+<p>浏览器问题。在浏览器地址栏右键 → 重新加载，或者按 <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>R</kbd> 强制刷新。</p>
+
+<h2 id="sec7">7. 软件装在哪里 / 数据在哪里</h2>
+
+<h3>7.1 程序文件</h3>
+<p>软件本体装在：</p>
+<pre>C:\Program Files\穹盾智矿\</pre>
+<p><strong>不要手动改这个目录的任何文件</strong>，否则可能启动不了。</p>
+
+<h3>7.2 日志文件</h3>
+<p>软件运行的记录（出错时给开发者看）在：</p>
+<pre>%APPDATA%\穹盾智矿\logs\</pre>
+<blockquote>快速打开方法：按 <kbd>Win</kbd> + <kbd>R</kbd> → 输入 <code>%APPDATA%\穹盾智矿\logs</code> → 回车<br><br>
+也可以右键托盘的<strong>蓝色盾牌图标 → "打开日志目录"</strong>。</blockquote>
+
+<p>里面有 5 个 <code>.log</code> 文件，<strong>出问题时把它们全部打包发给开发者</strong>：</p>
+<ul>
+<li><code>business_api.log</code> —— 业务接口</li>
+<li><code>sensor_api.log</code> —— 监测接口</li>
+<li><code>ai_engine.log</code> —— AI 引擎</li>
+<li><code>vision_engine.log</code> —— 视觉识别</li>
+<li><code>frontend.log</code> —— 前端服务</li>
+</ul>
+
+<h3>7.3 你的数据</h3>
+<p>数据库（账号、设备、告警、上传的图片等）在：</p>
+<pre>%APPDATA%\穹盾智矿\mining.db
+%APPDATA%\穹盾智矿\cv_results\</pre>
+<p><strong>这些文件在卸载软件后会保留</strong>，下次重新安装数据还在。
+想彻底清空就手动删 <code>%APPDATA%\穹盾智矿\</code> 整个文件夹。</p>
+
+<h2 id="sec8">8. 卸载</h2>
+
+<h3>8.1 标准卸载</h3>
+<ol>
+<li><strong>先把软件关掉</strong>（<a href="#sec5">第 5 节</a>）</li>
+<li>开始菜单 → 找到 <strong>"穹盾智矿"</strong> 文件夹 → 点 <strong>"卸载 穹盾智矿"</strong></li>
+<li>跟着向导点"是" → "下一步"</li>
+<li>完成后桌面图标会消失</li>
+</ol>
+<p>也可以从"设置 → 应用 → 已安装的应用"里找到"穹盾智矿"点"卸载"。</p>
+
+<h3>8.2 卸载后还想彻底清干净</h3>
+<p>卸载不会删用户数据。如果连数据一起删：</p>
+<ol>
+<li>按 <kbd>Win</kbd> + <kbd>R</kbd> → 输入 <code>%APPDATA%</code> → 回车</li>
+<li>找到 <strong>"穹盾智矿"</strong> 文件夹 → 右键 → 删除</li>
+</ol>
+
+<hr>
+
+<div class="ok-box">
+<div class="ok-box-title">求助路径</div>
+遇到这份手册没覆盖的问题：
+<ol>
+<li><strong>先看 <a href="#sec6">第 6 节 常见问题</a></strong></li>
+<li>把屏幕<strong>拍照</strong> + 把 <a href="#sec7">7.2 节</a> 提到的 5 个日志文件<strong>打包成一个 zip</strong></li>
+<li>发给提供软件的人</li>
+</ol>
+</div>
+
+<footer>
+穹盾智矿 · DomeShield Wisdom Mine · 安装与使用手册
+</footer>
+
+</body>
+</html>
