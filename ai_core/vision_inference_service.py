@@ -17,7 +17,13 @@ from models.cv.crack_yolo_model import CrackDetectorYOLO
 # 全局存储引擎
 cv_engine = None
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-RESULTS_DIR = os.path.join(BASE_DIR, 'results', 'cv')
+# 打包后写到用户数据目录；开发时仍落到项目内 results/cv
+_data_root = os.environ.get('MINING_DATA_DIR')
+RESULTS_DIR = (
+    os.path.join(_data_root, 'cv_results') if _data_root
+    else os.path.join(BASE_DIR, 'results', 'cv')
+)
+os.makedirs(RESULTS_DIR, exist_ok=True)
 HISTORY_FILE = os.path.join(RESULTS_DIR, 'history.json')
 
 

@@ -1,0 +1,4 @@
+# 启动器自身额外需要的依赖（业务/AI 依赖另装到同一个 build venv 里）
+pystray>=0.19.5
+pillow>=10.0.0
+pyinstaller>=6.0.0

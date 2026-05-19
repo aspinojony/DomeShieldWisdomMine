@@ -44,3 +44,10 @@ ai_core/results/
 
 # 模型原始训练素材（README 已说明：体积过大，不入库）
 模型/
+
+# Windows 安装包构建产物
+windows-installer/.build-venv/
+windows-installer/build/
+windows-installer/dist/
+windows-installer/output/
+windows-installer/assets/icon.ico
