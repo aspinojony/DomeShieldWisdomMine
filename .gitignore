@@ -51,3 +51,11 @@ windows-installer/build/
 windows-installer/dist/
 windows-installer/output/
 windows-installer/assets/icon.ico
+
+# Model weights and local contest docs
+*.pt
+*.pth
+*.onnx
+*.doc
+*.docx
+*.pdf
