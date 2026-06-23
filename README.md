@@ -1,5 +1,10 @@
 # 穹盾智矿 · DomeShield Wisdom Mine
 
+<p align="center">
+  <img src="assets/showcase/overview.svg" alt="Project Overview" width="100%" />
+</p>
+
+
 > 露天矿 / 地下矿空天地一体化智能预警与生产调度演示系统
 
 穹盾智矿是一个面向矿山安全监测、风险预警、无人机视觉复核与生产运营指挥的综合演示系统。项目把 **传感器监测、AI 时序预警、YOLO 裂缝识别、业务后台、三维大屏** 串成一条完整链路，用于课程项目、竞赛答辩、方案演示和后续工程化扩展。
