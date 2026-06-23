@@ -8,6 +8,19 @@
 
 > 面向求职展示：这是一个包含 **Vue3 前端大屏、FastAPI 多服务后端、SQLite 业务存储、YOLO 视觉识别、Docker Compose 编排、模拟设备数据流** 的综合工程项目，重点体现全栈集成、AI 服务接入和系统联调能力。
 
+## 运行截图
+
+> 本地启动 `frontend_dashboard` Vite 前端后截取，截图来自真实页面渲染。
+
+<p align="center">
+  <img src="docs/images/login.png" alt="登录页" width="48%" />
+  <img src="docs/images/vision.png" alt="智能识别页" width="48%" />
+</p>
+<p align="center">
+  <img src="docs/images/production.png" alt="生产运营页" width="48%" />
+  <img src="docs/images/dashboard.png" alt="首页入口" width="48%" />
+</p>
+
 ## 项目亮点
 
 - **全链路业务演示**：传感器数据 → 风险预警 → 无人机视觉复核 → 告警记录 → 生产调度联动。
