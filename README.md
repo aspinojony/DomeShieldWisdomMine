@@ -1,8 +1,5 @@
 # 穹盾智矿 · DomeShield Wisdom Mine
 
-<p align="center">
-  <img src="assets/showcase/overview.svg" alt="Project Overview" width="100%" />
-</p>
 
 
 > 露天矿 / 地下矿空天地一体化智能预警与生产调度演示系统
